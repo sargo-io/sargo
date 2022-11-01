@@ -2,33 +2,31 @@
 pragma solidity ^0.8.17;
 
 import "hardhat/console.sol";
- import './Admin.sol';
+ import './Identity.sol';
 
 /**
  * @title Pausable
  * @dev Pausable contract allows child 
- * contracts to implement a halt mechanism.
+ * contracts to implement a pause mechanism.
  */
-
- /**TODO: implement pauser/admin role (only role allowed to execute) */
-contract Pausable is Admin {
+contract Pausable is Identity {
 
     bool internal _paused;
 
-    event Paused(address account);
-    event UnPaused(address account);
+    event Paused(address indexed account);
+    event UnPaused(address indexed account);
 
     /**
-     *@dev Modifier to make a function callable 
-     * only when the contract is not paused
+     *@dev Modifier to make a functions callable 
+     * only when the contract is active
      */
-    modifier whenNotPaused() {
+    modifier whenActive() {
         require(!_paused, "Must not be paused");
         _;
     }
 
     /**
-     * @dev Modifier to make a function callable only
+     * @dev Modifier to make a functions callable only
      * when the contract is paused
      */
     modifier whenPaused() {
@@ -37,16 +35,16 @@ contract Pausable is Admin {
     }
 
     /**
-     * Trigger paused state - called by owner
+     * Trigger paused state
      */
-    function pause() public whenNotPaused {
+    function pause() public whenActive {
         console.log('Attempting to pause contract %s', msg.sender);
         _paused = true;
         emit Paused(msg.sender);
     }
 
     /**
-     * @dev Trigger unpaused state - called by owner
+     * @dev Trigger unpaused state
      */
     function unPause() public whenPaused {
         console.log('Attempting to unpause contract %s', msg.sender);
