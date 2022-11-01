@@ -9,7 +9,7 @@ describe('Pausable contract', () => {
         const [owner] = await ethers.getSigners();
         const pausable = await Pausable.deploy();
         await pausable.deployed();
-
+        
         return { Pausable, pausable, owner };
     }
 
