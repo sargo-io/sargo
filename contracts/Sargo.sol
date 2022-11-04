@@ -6,46 +6,47 @@ pragma solidity ^0.8.17;
  import './Pausable.sol';
 
 /** 
- * @title Sargo smart contract 
+ * @title Sargo
+ * @dev Sargo contract - topup, withdrawal 
+ * and value transfer 
  */
 contract Sargo is Ownable, Pausable {
 
     address payable private _sender;
-    address payable private _recipient;
 
-    enum transType {
-      TOPUP,
+    enum txType {
+      DEPOSIT,
       WITHDRAW,
       TRANSFER
     }
 
-   //Topup status enums
-    enum topupStatus {
-      TOPUP_REQUEST,
-      TOPUP_REQUEST_ACCEPTED,
-      TOPUP_USER_NOTIFY,
-      TOPUP_USER_CONFIRM,
-      TOPUP_AGENT_CONFIRM,
-      TOPUP_COMPLETED
+    enum topup {
+      REQUEST,
+      REQUEST_ACCEPTED,
+      USER_NOTIFY,
+      USER_CONFIRM,
+      AGENT_CONFIRM,
+      COMPLETED
     }
 
-   //Withdraw status enums
-    enum withdrawStatus {
-      WITHDRAW_REQUEST,
-      WITHDRAW_REQUEST_ACCEPTED,
-      WITHDRAW_AGENT_NOTIFY,
-      WITHDRAW_AGENT_CONFIRM,
-      WITHDRAW_USER_CONFIRM,
-      WITHDRAW_COMPLETED
+    enum withdraw {
+      REQUEST,
+      REQUEST_ACCEPTED,
+      AGENT_NOTIFY,
+      AGENT_CONFIRM,
+      USER_CONFIRM,
+      COMPLETED
     }
 
-   //transaction structs
    struct Transaction {
       uint256 id;
       uint256 txHash;
       bytes32 txType;
       bytes32 status;
+      address account;
       bytes32 pnhoneNumber;
+      bytes32 tokenSymbol;
+      bytes32 currencyCode;
       uint256 totalAmount;
       uint256 netAmount;
       uint256 gas;
@@ -54,58 +55,56 @@ contract Sargo is Ownable, Pausable {
       uint256 timestamp;
    }
 
-    /**
-     * @dev Initialize Sargo contract
-     */
-    constructor() {
-      //_sender = payable(getOwner());
-    }
+   mapping(address => uint256) public txn;
 
-   /**
-   * Get sender address
-   * @return address of sender
-   */
-   function getSender() external view returns (address) {
-      return _sender;
+   constructor() {
+      _sender = payable(getOwner());
    }
 
-   /**
-   * Set recipient address
-   * @param recipient Recipient address
-   */
-   function setRecipient(address payable recipient) external onlyOwner {
-      _recipient = payable(recipient);
-      console.lo('Recipient set to %s ', _recipient);
-   }
+   // TODO: add events
+   event BalanceReturned(address account);
+   event RequestsReturned(string queryStatus);
+   event RequestCancelled(string indexed txHash);
+   event RequestTransactions(string queryStatus);
+   event TransferCompleted(address indexed sender, address indexed recipient, uint256 amount);
+   //
+   event TopupRequestCompleted(address indexed account, uint256 amount);
+   event TopupRequestAccepted(string indexed txHash);
+   event TopupFiatSentConfirmation(string indexed txHash);
+   event TopupFiatReceivedConfirmation(string indexed txHash);
+   //
+   event WithdrawRequestCompleted(address indexed account, uint256 amount);
+   event WithdrawRequestAccepted(string indexed txHash);
+   event WithdrawFiatSentConfirmation(string indexed txHash);
+   event WithdrawFiatReceivedConfirmation(string indexed txHash);
 
-   /**
-   * Get recipient address
-   * @return address of recipient
-   */
-   function getRecipient() external view returns (address) {
-      return _recipient;
-   }
+   // TODO: add modifiers
+
+   function setTransaction(Transaction calldata _transaction) public {}
 
    /**
     * @dev Get acount balance
     * @param account The account to get balance
     * @return uint256
     */
-   function getBalance(address account) external view returns (uint256) {
+   function getBalance(address account) public returns (uint256) {
       /** TODO: get balance */
       console.log('Getting balance for account %s ', account);
-      /** TODO: emit balance returned */
+      emit BalanceReturned(account);
+
+      return 0;
    }
 
    /**
-    * @dev Get requests
-    * @param requestType Transaction type
+    * @dev Get sent requests
     * @return bool
     */
-   function getRequests(transType requestType) external view returns (bool) {
+   function getRequests() public returns (bool) {
       /** TODO: get requests (topup/withdrawal) */
-      console.log('Querying request of type %s ', requestType);
-      /** TODO: emit requests returned */
+      console.log('Querying requests');
+      emit RequestsReturned('Requests returned');
+
+      return false;
    }
    
    /**
@@ -113,87 +112,138 @@ contract Sargo is Ownable, Pausable {
     * @param txHash The transaction hash
     * @return bool
     */
-   function cancelRequest(bytes32 txHash) external view returns (bool) {
+   function cancelRequest(string calldata txHash) public returns (bool) {
       /** TODO: validate status before cancel */
       /** TODO: cancel topup request */
       /** TODO: cancel withdrawal request */
       console.log('Cancelling request for transaction %s ', txHash);
-      /** TODO: emit cancel transaction */
+      emit RequestCancelled(txHash);
+      
+      return false;
    }
    
    /**
     * @dev Get transactions
-    * @param txType Transaction type
     */
-   function getTransactions(transType txType) external view returns (bool) {
+   function getTransactions() public returns (bool) {
       /** TODO: get transactions */
-      console.log('Geting transaction of type %s ', txType);
-      /** TODO: emit returned transactions */
+      console.log('Geting transactions');
+      emit RequestTransactions('Transactions returned');
+
+      return false;
    }
 
    /**
-    * @dev transfer value to passed recipient
+    * @dev transfer value to passed recipient address
     * @param recipient The recipient address
-    * @return bool
     */
-   function transfer(address payable recipient) external onlyOwner whenActive {
+   function transfer(address payable recipient, uint256 amount) public onlyOwner whenActive {
       /** TODO: validate transaction details */
       /** TODO: send/receive - transfer from msg.sender to a recipient account*/
 
-      setRecipient(recipient);
+      //setup struct properties
 
-      console.log('Transfering form sender address %s to recipient address %s ', getOwner(), recipient);
-      /** TODO: emit transfer completed */
+      console.log('Transfering form sender address %s to recipient address %s ', _sender, recipient);
+      emit TransferCompleted(_sender, recipient, amount);
    }
 
+   /**
+    * @dev Make a topup request
+    * @param amount The topup amount
+    */
+   function topupRequest(uint256 amount) external onlyOwner {
+      /** TODO: topup - user make topup request*/
+      emit TopupRequestCompleted(_sender, amount);
+   }
+
+   /**
+    * @dev Accept topup request
+    * @param txHash The transaction hash
+    */
+   function acceptTopupRequest(string calldata txHash) external onlyOwner {
+      /** TODO: topup - agent accept topup request*/
+      /** TODO: topup - request amount sent to escrow*/
+      /** TODO: topup - notify user agent accepted request and sends phone number to user*/
+      emit TopupRequestAccepted(txHash);
+   }
+
+   /**
+    * @dev Fiat sent confirmation
+    * @param txHash The transaction hash
+    */
+    function topupFiatSent(string calldata txHash) external onlyOwner {
+      /** TODO: topup - user confirms that they have sent the payment by mpesa*/
+      emit TopupFiatSentConfirmation(txHash);
+    }
    
+   /**
+    * @dev fiat received confirmation
+    * @param txHash The transaction hash
+    */
+    function topupFiatReceived(string calldata txHash) external onlyOwner {
+      /** TODO: topup - after agent receive mpesa payment, the confirm receipt*/
+      /** TODO: topup - escrow sends topup cUSD amount to user account*/
+      /** TODO: topup - escrow sends agent commission to agent account*/
+      /** TODO: topup - escrow sends sargo commision to treasury account*/
+      /** TODO: topup - user and agent are notified that the transaction has been completed*/
+      emit TopupFiatReceivedConfirmation(txHash);
+    }
 
+    /**
+     * @dev Make a withdraw request
+     */
+     function withdrawRequest(uint256 amount) external onlyOwner {
+      /** TODO: withdrawal - user makes withdrawal request*/
+      emit WithdrawRequestCompleted(_sender, amount);
+     }
 
+   /**
+    * @dev Accept withdraw request
+    * @param txHash The transaction hash
+    */
+   function acceptWithdrawRequest(string calldata txHash) external onlyOwner {
+      /** TODO: withdrawal - agent accepts withdrawal request*/
+      /** TODO: withdrawal - withdrawal amount is sent to escrow*/
+      /** TODO: withdrawal - notify user agent accepted request and requests phone number from user*/
+      emit WithdrawRequestAccepted(txHash);
+   }
 
+   /**
+    * @dev Fiat sent confirmation
+    * @param txHash The transaction hash
+    */
+   function withdrawFiatSent(string calldata txHash) external onlyOwner {
+      /** TODO: withdrawal - agent sends mpesa to user and confirms via the dapp*/
+      emit WithdrawFiatSentConfirmation(txHash);
+   }
 
-
-
-
-   /*####################################################*/
+   /**
+    * @dev fiat received confirmation
+    * @param txHash The transaction hash
+    */
+   function withdrawFiatReceived(string calldata txHash) external onlyOwner {
+      /** TODO: withdrawal - after user receives mpesa payment, the confirm receipt*/
+      /** TODO: withdrawal - escrow sends topup cUSD amount to agent account*/
+      /** TODO: withdrawal - escrow sends agent commission to agent account*/
+      /** TODO: withdrawal - escrow sends sargo commision to treasury account*/
+      /** TODO: withdrawal - user and agent are notified that the transaction has been completed*/
+      emit WithdrawFiatReceivedConfirmation(txHash);
+   }
 
     /* 
         ++interfaces
         ++global variables
         ++constructor
-        ++modifiers
-        ++events
+        
         ++functions for - topup, withdraw, send, receive
     */
 
-    /** TODO: topup - user make topup request*/
-    /** TODO: topup - agent accept topup request*/
-    /** TODO: topup - request amount sent to escrow*/
-    /** TODO: topup - notify user agent accepted request and sends phone number to user*/
-    /** TODO: topup - user confirms that they have sent the payment by mpesa*/
-    /** TODO: topup - after agent receive mpesa payment, the confirm receipt*/
-    /** TODO: topup - escrow sends topup cUSD amount to user account*/
-    /** TODO: topup - escrow sends agent commission to agent account*/
-    /** TODO: topup - escrow sends sargo commision to treasury account*/
-    /** TODO: topup - user and agent are notified that the transaction has been completed*/
-
-
-    /** TODO: withdrawal - user makes withdrawal request*/
-    /** TODO: withdrawal - agent accepts withdrawal request*/
-    /** TODO: withdrawal - withdrawal amount is sent to escrow*/
-    /** TODO: withdrawal - notify user agent accepted request and requests phone number from user*/
-    /** TODO: withdrawal - agent sends mpesa to user and confirms via the dapp*/
-    /** TODO: withdrawal - after user receives mpesa payment, the confirm receipt*/
-    /** TODO: withdrawal - escrow sends topup cUSD amount to agent account*/
-    /** TODO: withdrawal - escrow sends agent commission to agent account*/
-    /** TODO: withdrawal - escrow sends sargo commision to treasury account*/
-    /** TODO: withdrawal - user and agent are notified that the transaction has been completed*/
-
-    //Helpers
-    /** TODO: amount to wei/cUSD/ether... conversions */
+    //Library functions candidates
     /** TODO: set transaction struct  */
+    /** TODO: strToBytesHash */
+    /** TODO: notifications */
 
 }
-
 
 /*
     ++Tests
@@ -204,22 +254,7 @@ contract Sargo is Ownable, Pausable {
     ++logging
  */
 
-
  /**
-    Ownable - contract
     Escrow - contract
-    Token - contract
     Common - contract
-
-    Common -> Token -> Ownable -> Sargo
-
-    Sargo inherits Ownable
-    Ownerble inherits Token
-    Token inherits Common
-
-
-
-
  */
-
-/*####################################################*/

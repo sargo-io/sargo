@@ -34,7 +34,7 @@ contract Ownable {
      * @dev Set new owner address
      * @param newOwner address of new owner
      */
-    function setOwner(address newOwner) external onlyOwner {
+    function setOwner(address newOwner) public onlyOwner {
         emit OwnerIsSet(owner, newOwner);
         console.log('Changing owner address from %s to %s', owner, newOwner);
         owner = newOwner;
@@ -44,14 +44,14 @@ contract Ownable {
      * @dev Get owner address 
      * @return address of owner
      */
-    function getOwner() external view returns (address) {
+    function getOwner() public view returns (address) {
         return owner;
     }
 
     /**
      *@dev check if caller is owner
      */
-    function isOwner() external view returns (bool) {
+    function isOwner() public view returns (bool) {
         return msg.sender == owner;
     }
 

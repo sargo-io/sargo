@@ -43,9 +43,8 @@ library Math {
      */
     function safeMul(uint256 num1, uint256 num2) 
         internal pure returns (uint256) {
-        if (num1 == 0) {
+        if (num1 == 0) 
             return 0;
-        }
 
         uint256 res = num1 * num2;
         require(res / num1 == num2, "Math.safeMul: multiplication overflow");
@@ -79,5 +78,42 @@ library Math {
         
         return num1 % num2;
     }
+
+    /**
+     * @dev Safe exponential
+     * @param num Number
+     * @param exponent Exponent value
+     * @return uint256
+     */
+    function safePow(uint256 num, uint256 exponent) 
+        internal pure returns (uint256) {
+        if (num == 0) 
+            return 0;
+
+        if (exponent == 0) 
+            return 1;
+
+        return num ** exponent;
+    }
+
+    /** TODO: amount to wei/cUSD/ether... conversions */
+    function safeWei(uint256 num) internal pure returns (uint256) {
+        if (num == 0) 
+            return 0;
+        
+        return num * 1 ether;
+    }
+
+    /** TODO: amount from cUSD/wei/ether... conversions */
+    function weiToUsd(uint256 num) internal pure returns (uint256) {
+        if (num == 0) 
+            return 0;
+        
+        return num / 1 ether;
+    }
+
+    
+
+
 
 }
