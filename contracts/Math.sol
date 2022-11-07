@@ -101,7 +101,8 @@ library Math {
      * @param num Number to convert to wei
      * @return uint256
      */
-    function toWei(uint256 num) internal pure returns (uint256) {
+    function toWei(uint256 num) 
+        internal pure returns (uint256) {
         if (num == 0) 
             return 0;
         
@@ -113,7 +114,8 @@ library Math {
      * @param num Number to convert
      * @return uint256
      */
-    function fromWei(uint256 num) internal pure returns (uint256) {
+    function fromWei(uint256 num) 
+        internal pure returns (uint256) {
         if (num == 0) 
             return 0;
         
