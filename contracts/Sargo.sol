@@ -246,7 +246,6 @@ contract Sargo is Ownable, Pausable {
 }
 
 /*
-    ++Tests
     ++Deployment local/testnet
     ++configs - envars
     ++validation
