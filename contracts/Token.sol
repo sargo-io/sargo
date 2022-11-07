@@ -9,7 +9,7 @@ pragma solidity ^0.8.17;
 contract Token {
     string public name = 'Sargo Token';
     string public symbol = 'SGT';
-    uint public totalSupply = 1000000;
+    uint256 public totalSupply = 1000000;  // * 10 ** 18
     address public owner;
     mapping(address => uint) balances;
 
