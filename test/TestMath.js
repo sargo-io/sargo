@@ -43,6 +43,16 @@ describe('Math library utils', () => {
             expect(await math.pow(2, 3)).to.equal(8);
         });
 
+        it('Should return zero if num is zero', async function () {
+            const { math } = await loadFixture(deployMathUtilFixture);
+            expect(await math.pow(0, 3)).to.equal(0);
+        });
+
+        it('Should return one if num is zero and exponent is zero', async function () {
+            const { math } = await loadFixture(deployMathUtilFixture);
+            expect(await math.pow(0, 0)).to.equal(1);
+        });
+
         it('Should return the wei equivalent of num', async function () {
             const { math } = await loadFixture(deployMathUtilFixture);
             expect(await math.toWei(1)).to.equal(1000000000000000000n);
