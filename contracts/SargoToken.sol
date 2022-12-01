@@ -12,7 +12,7 @@ pragma solidity ^0.8.17;
  * @dev Sargo ERC20 token contract 
  * and value transfer 
  */
-contract Token is IERC20, Ownable, Pausable {
+contract SargoToken is IERC20, Ownable, Pausable {
     /**
      * @dev Safe math library
      */
@@ -32,11 +32,11 @@ contract Token is IERC20, Ownable, Pausable {
         uint8 decimals_,
         string memory symbol_
     ) {
-        balanceOf[msg.sender] = initialSupply_;
         totalSupply = initialSupply_;
+        balanceOf[msg.sender] = initialSupply_;
         name = name_;
-        symbol = symbol_;
         decimals = decimals_;
+        symbol = symbol_;
     }
 
     function transfer(address recipient, uint256 amount) public returns (bool) {
@@ -58,9 +58,7 @@ contract Token is IERC20, Ownable, Pausable {
 
     function approve(address spender, uint256 amount) external returns (bool) {
         require (amount > 0, "Cannot use zero");
-        
         allowance[msg.sender][spender] = amount;
-        
         emit Approval(msg.sender, spender, amount);
         
         return true;
@@ -71,32 +69,21 @@ contract Token is IERC20, Ownable, Pausable {
         require(amount > 0, "Cannot use zero value");
         require( balanceOf[sender] >= amount, "Balance not enough" );
         require( balanceOf[recipient] + amount > balanceOf[recipient], "Cannot overflow" );
-        require( amount <= allowance[sender][msg.sender], "Cannot over allowance" );
+        require( amount <= allowance[sender][msg.sender], "Cannot over allowance");
         
         allowance[sender][msg.sender] = Math.sub(allowance[sender][msg.sender], amount);
         balanceOf[sender] = Math.sub(balanceOf[sender], amount);
         balanceOf[recipient] = Math.add(balanceOf[recipient], amount);
-        
         emit Transfer(sender, recipient, amount);
-        
+
         return true;
     }
 
-    function batchTransfer(address[] memory recipients, uint256[] memory amounts) external returns (bool) {
+    function transferBatch(address[] memory recipients, uint256[] memory amounts) external returns (bool) {
         require(recipients.length <= 200, "Too many recipients");
 
         for(uint256 i = 0; i < recipients.length; i++) {
             transfer(recipients[i], amounts[i]);
-        }
-
-        return true;
-    }
-
-    function batchTransferSingleAmount(address[] memory recipients, uint256 amount) external returns (bool) {
-        require(recipients.length <= 200, "Too many recipients");
-
-        for(uint256 i = 0; i < recipients.length; i++) {
-            transfer(recipients[i], amount);
         }
 
         return true;
