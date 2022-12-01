@@ -182,7 +182,6 @@ describe('SargoEscrow contract', () => {
     });
 
 
-
         /*
         it('Should allow the agent to confirm fiat payment received - deposit request', async() => {
             const { sargoEscrow } = await loadFixture(deploySargoEscrowFixture);
