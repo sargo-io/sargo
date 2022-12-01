@@ -36,6 +36,7 @@ artifacts
 
 node_modules
 .env
+.env.production
 coverage
 coverage.json
 typechain

@@ -1,45 +1,125 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
+ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
  import "hardhat/console.sol";
+ import './Ownable.sol';
+ import './Pausable.sol';
+ import './Math.sol';
 
 /** 
- * @title Token smart contract 
+ * @title Sargo token contract
+ * @dev Sargo ERC20 token contract 
+ * and value transfer 
  */
-contract Token {
-    string public name = 'Sargo Token';
-    string public symbol = 'SGT';
-    uint256 public totalSupply = 1000000;  // * 10 ** 18
-    address public owner;
-    mapping(address => uint) balances;
+contract Token is IERC20, Ownable, Pausable {
+    /**
+     * @dev Safe math library
+     */
+    using Math for uint256;
 
-    constructor() {
-        balances[msg.sender] = totalSupply;
-        owner = msg.sender;
+    string public name;
+    string public symbol;
+    uint256 public totalSupply;
+    uint8 public decimals;
+
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    constructor(
+        uint256 initialSupply_,
+        string memory name_,
+        uint8 decimals_,
+        string memory symbol_
+    ) {
+        balanceOf[msg.sender] = initialSupply_;
+        totalSupply = initialSupply_;
+        name = name_;
+        symbol = symbol_;
+        decimals = decimals_;
     }
 
-    event Transfer(address from, address to, uint amount);
+    function transfer(address recipient, uint256 amount) public returns (bool) {
+        require(recipient != address(this));
+        require(recipient != address(0), "Cannot use zero address");
+        require(amount > 0, "Cannot use zero value");
+        require (balanceOf[msg.sender] >= amount, "Balance not enough");
+        require (balanceOf[recipient] + amount >= balanceOf[recipient], "Overflow" );
+        
+        uint256 previousBalances = balanceOf[msg.sender] + balanceOf[recipient];          
+        balanceOf[msg.sender] = Math.sub(balanceOf[msg.sender], amount);
+        balanceOf[recipient] = Math.add(balanceOf[recipient], amount);
+        
+        emit Transfer(msg.sender, recipient, amount);
+        assert(balanceOf[msg.sender] + balanceOf[recipient] == previousBalances);
 
-    function transfer(address to, uint amount) external {
-        console.log('Sender balance is %s tokens', balances[msg.sender]);
-        console.log('Trying to send %s tokens to %s', amount, to);
-        require(balances[msg.sender] >= amount, 'Not enough tokens');
-        console.log("Transferring from %s to %s %s tokens", msg.sender, to, amount);
-        balances[msg.sender] -= amount;
-        balances[to] += amount;
-        console.log('Transfer complete');
-        emit Transfer(msg.sender, to, amount);
+        return true;
     }
 
-    function balanceOf(address account) external view returns(uint) {
-        return balances[account];
+    function approve(address spender, uint256 amount) external returns (bool) {
+        require (amount > 0, "Cannot use zero");
+        
+        allowance[msg.sender][spender] = amount;
+        
+        emit Approval(msg.sender, spender, amount);
+        
+        return true;
+    }
+
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool) {
+        require(recipient != address(0), "Cannot use zero address");
+        require(amount > 0, "Cannot use zero value");
+        require( balanceOf[sender] >= amount, "Balance not enough" );
+        require( balanceOf[recipient] + amount > balanceOf[recipient], "Cannot overflow" );
+        require( amount <= allowance[sender][msg.sender], "Cannot over allowance" );
+        
+        allowance[sender][msg.sender] = Math.sub(allowance[sender][msg.sender], amount);
+        balanceOf[sender] = Math.sub(balanceOf[sender], amount);
+        balanceOf[recipient] = Math.add(balanceOf[recipient], amount);
+        
+        emit Transfer(sender, recipient, amount);
+        
+        return true;
+    }
+
+    function batchTransfer(address[] memory recipients, uint256[] memory amounts) external returns (bool) {
+        require(recipients.length <= 200, "Too many recipients");
+
+        for(uint256 i = 0; i < recipients.length; i++) {
+            transfer(recipients[i], amounts[i]);
+        }
+
+        return true;
+    }
+
+    function batchTransferSingleAmount(address[] memory recipients, uint256 amount) external returns (bool) {
+        require(recipients.length <= 200, "Too many recipients");
+
+        for(uint256 i = 0; i < recipients.length; i++) {
+            transfer(recipients[i], amount);
+        }
+
+        return true;
+    }
+
+    function mint(address recipient , uint256 amount) external whenActive onlyCreator canMint returns (bool){
+        require(recipient != address(0), "Cannot use zero address");
+        require(balanceOf[recipient] + amount > balanceOf[recipient]);
+        require(totalSupply + amount > totalSupply);
+
+        balanceOf[recipient] = Math.add(balanceOf[recipient], amount);
+        totalSupply = Math.add(totalSupply, amount);
+        emit Transfer(address(0), recipient, amount);
+
+        return true;
+    }
+
+    function burn(uint256 amount) external whenActive onlyDestroyer {
+        require(balanceOf[destroyer] >= amount && amount > 0);
+
+        balanceOf[destroyer] = Math.sub(balanceOf[destroyer], amount);
+        totalSupply = Math.sub(totalSupply, amount);
+        emit Transfer(destroyer, address(0), amount);
     }
 
 }
-
-
-
-/*
- * mint new tokens??
- * burn tokens??
- */

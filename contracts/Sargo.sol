@@ -1,259 +1,559 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
+ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
  import "hardhat/console.sol";
  import './Ownable.sol';
  import './Pausable.sol';
+ import './Math.sol';
 
 /** 
  * @title Sargo
- * @dev Sargo contract - topup, withdrawal 
- * and value transfer 
+ * @dev Sargo escrow contract  
  */
 contract Sargo is Ownable, Pausable {
+   
+   /**
+    * @dev Safe math library
+    */
+   using Math for uint256;
 
-    address payable private _sender;
+   /**
+    * @dev Transaction index
+    */
+   uint256 private nextTransactionId = 0;
 
-    enum txType {
+   /**
+    * @dev Agent's fee
+    */
+   uint256 private agentFee  = 50000000000000000;
+
+   /**
+    * @dev Sargo fee
+    */
+   uint256 private sargoFee = 40000000000000000;
+
+   /**
+    * @dev Transactions counter
+    */
+   uint256 private transactionsCounter = 0;
+
+   /**
+    * @dev Sargo address 
+    */
+    address internal sargoAddress = 0xD451170e2b7348058fE5BfCe7B62e22C372305b2;
+
+    /**
+     * @dev Treasury address
+     */
+    address internal treasuryAddress = 0x43513B39D89d3313162e3399Db2f573c023B4d17;
+
+   /**
+    * @dev Transactions mappings
+    */
+    mapping(uint256 => Transaction) private transactions;
+
+   /**
+    * @dev Transaction types enum
+    */
+    enum TransactionType {
       DEPOSIT,
       WITHDRAW,
       TRANSFER
     }
 
-    enum topup {
+   /** 
+    * @dev Transaction status
+    * REQUEST - Transaction started, awaiting agent pairing
+    * PAIRED - Agent paired, awaiting for approval by agent and client
+    * CONFIRMED - Transaction confirmed by agent and client
+    * COMPLETED - Transaction completed, currency moved from escrow to recipient
+    * CANCELLED - Transaction cancelled, 
+    */
+    enum Status {
       REQUEST,
-      REQUEST_ACCEPTED,
-      USER_NOTIFY,
-      USER_CONFIRM,
-      AGENT_CONFIRM,
-      COMPLETED
+      PAIRED,
+      CONFIRMED,
+      COMPLETED,
+      CANCELLED
     }
 
-    enum withdraw {
-      REQUEST,
-      REQUEST_ACCEPTED,
-      AGENT_NOTIFY,
-      AGENT_CONFIRM,
-      USER_CONFIRM,
-      COMPLETED
-    }
-
+   /**
+    * @dev Transaction object
+    */
    struct Transaction {
       uint256 id;
-      uint256 txHash;
-      bytes32 txType;
-      bytes32 status;
-      address account;
-      bytes32 pnhoneNumber;
-      bytes32 tokenSymbol;
-      bytes32 currencyCode;
+      TransactionType txType;
+      address clientAccount;
+      address agentAccount;
+      Status status;
+      string currencyCode;
+      string conversionRate;
       uint256 totalAmount;
       uint256 netAmount;
-      uint256 gas;
-      uint256 commission;
-      uint256 treasury;
-      uint256 timestamp;
+      uint256 agentFee;
+      uint256 treasuryFee;
+      bool agentApproved;
+      bool clientApproved;
+      string clientPhoneNumber;
+      string agentPhoneNumber;
    }
-
-   mapping(address => uint256) public txn;
-
-   constructor() {
-      _sender = payable(getOwner());
-   }
-
-   // TODO: add events
-   event BalanceReturned(address account);
-   event RequestsReturned(string queryStatus);
-   event RequestCancelled(string indexed txHash);
-   event RequestTransactions(string queryStatus);
-   event TransferCompleted(address indexed sender, address indexed recipient, uint256 amount);
-   //
-   event TopupRequestCompleted(address indexed account, uint256 amount);
-   event TopupRequestAccepted(string indexed txHash);
-   event TopupFiatSentConfirmation(string indexed txHash);
-   event TopupFiatReceivedConfirmation(string indexed txHash);
-   //
-   event WithdrawRequestCompleted(address indexed account, uint256 amount);
-   event WithdrawRequestAccepted(string indexed txHash);
-   event WithdrawFiatSentConfirmation(string indexed txHash);
-   event WithdrawFiatReceivedConfirmation(string indexed txHash);
-
-   // TODO: add modifiers
-
-   function setTransaction(Transaction calldata _transaction) public {}
 
    /**
-    * @dev Get acount balance
-    * @param account The account to get balance
+    * @dev Initialize contract
+    * @param _sargoAddress Sargo address
+    * @param _agentFee Agent fee
+    * @param _sargoFee Sargo fee
+    * @param _treasuryAddress Sargo treasury address
+    */
+   constructor(
+      address _sargoAddress, 
+      uint256 _agentFee, 
+      uint256 _sargoFee, 
+      address _treasuryAddress) {
+      if (_sargoAddress != address(0)) 
+         sargoAddress = _sargoAddress;
+
+      if (_treasuryAddress != address(0)) 
+         treasuryAddress = _treasuryAddress;
+
+      if (_agentFee > 0) 
+         agentFee = _agentFee;
+
+      if (_sargoFee > 0) 
+         sargoFee = _sargoFee;
+   }
+
+    event RequestAccepted(Transaction txn);
+    event TransactionInitiated(uint txId, address txOwner);
+    event ClientConfirmed(Transaction txn);
+    event AgentConfirmed(Transaction txn);
+    event ConfirmationCompleted(Transaction txn);
+    event TransactionCompleted(Transaction txn);
+   event Transfer(
+      address indexed sender, 
+      address indexed recipient, 
+      uint256 amount);
+
+   /**
+    * @dev Get the Sargo address
+    * @return address
+    */
+   function getSargoAddress() public view returns(address) {
+        return sargoAddress;
+   }
+
+   /**
+    * @dev Get the treasury address
+    * @return address
+    */
+   function getTreasuryAddress() public view returns(address) {
+        return treasuryAddress;
+   }
+
+   /**
+    * @dev Get the agent's fee
     * @return uint256
     */
-   function getBalance(address account) public returns (uint256) {
-      /** TODO: get balance */
-      console.log('Getting balance for account %s ', account);
-      emit BalanceReturned(account);
-
-      return 0;
+   function getAgentFee() public view returns(uint256) {
+      return agentFee;
    }
 
    /**
-    * @dev Get sent requests
-    * @return bool
+    * @dev Get the Sargo fee
+    * @return uint256
     */
-   function getRequests() public returns (bool) {
-      /** TODO: get requests (topup/withdrawal) */
-      console.log('Querying requests');
-      emit RequestsReturned('Requests returned');
-
-      return false;
-   }
-   
-   /**
-    * @dev Cancel a topup or withdraw request
-    * @param txHash The transaction hash
-    * @return bool
-    */
-   function cancelRequest(string calldata txHash) public returns (bool) {
-      /** TODO: validate status before cancel */
-      /** TODO: cancel topup request */
-      /** TODO: cancel withdrawal request */
-      console.log('Cancelling request for transaction %s ', txHash);
-      emit RequestCancelled(txHash);
-      
-      return false;
-   }
-   
-   /**
-    * @dev Get transactions
-    */
-   function getTransactions() public returns (bool) {
-      /** TODO: get transactions */
-      console.log('Geting transactions');
-      emit RequestTransactions('Transactions returned');
-
-      return false;
+   function getSargoFee() public view returns(uint256) {
+        return sargoFee;
    }
 
    /**
-    * @dev transfer value to passed recipient address
-    * @param recipient The recipient address
+    * @dev Get the next transaction index
+    * @return uint256
     */
-   function transfer(address payable recipient, uint256 amount) public onlyOwner whenActive {
-      /** TODO: validate transaction details */
-      /** TODO: send/receive - transfer from msg.sender to a recipient account*/
-
-      //setup struct properties
-
-      console.log('Transfering form sender address %s to recipient address %s ', _sender, recipient);
-      emit TransferCompleted(_sender, recipient, amount);
+   function getNextTransactionIndex() public view returns(uint256) {
+      return nextTransactionId;
    }
 
    /**
-    * @dev Make a topup request
-    * @param amount The topup amount
+    * @dev Get the number of successful transactions
+    * @return uint256
     */
-   function topupRequest(uint256 amount) external onlyOwner {
-      /** TODO: topup - user make topup request*/
-      emit TopupRequestCompleted(_sender, amount);
+   function getTransactionsCount() public view returns (uint256) {
+      return  transactionsCounter;
    }
 
    /**
-    * @dev Accept topup request
-    * @param txHash The transaction hash
+    * @dev Initialize a transaction
+    * @param _txType Transaction type
+    * @param _amount Transaction amount
+    * @param _currencyCode Fiat currency code
+    * @param _conversionRate Fiat conversion rate
+    * @return Transaction
     */
-   function acceptTopupRequest(string calldata txHash) external onlyOwner {
-      /** TODO: topup - agent accept topup request*/
-      /** TODO: topup - request amount sent to escrow*/
-      /** TODO: topup - notify user agent accepted request and sends phone number to user*/
-      emit TopupRequestAccepted(txHash);
+   function initTxn(
+      TransactionType _txType, 
+      uint256 _amount,
+      string memory _currencyCode,
+      string memory _conversionRate) private returns (Transaction memory) {
+      uint256 txId = nextTransactionId; 
+      nextTransactionId++;
+
+      uint256 totalAmount = _amount + (sargoFee + agentFee);
+      Transaction storage _txn = transactions[txId];
+
+      _txn.id = txId;
+      _txn.txType = _txType;
+      _txn.clientAccount = msg.sender;
+      _txn.status = Status.REQUEST;
+      _txn.currencyCode = _currencyCode;
+      _txn.conversionRate = _conversionRate; //fiat<->crypto
+      _txn.totalAmount = totalAmount;
+      _txn.netAmount = _amount;
+      _txn.agentFee = agentFee;
+      _txn.treasuryFee = sargoFee;
+      _txn.agentApproved = false;
+      _txn.clientApproved = false;
+
+      return _txn;
    }
 
    /**
-    * @dev Fiat sent confirmation
-    * @param txHash The transaction hash
-    */
-    function topupFiatSent(string calldata txHash) external onlyOwner {
-      /** TODO: topup - user confirms that they have sent the payment by mpesa*/
-      emit TopupFiatSentConfirmation(txHash);
+    * @dev Initiate a withdrawal transaction
+    * @param _amount Transaction amount
+    * @param _currencyCode The fiat currency code
+    * @param _conversionRate The current fiat conversion rate
+    **/
+   function initiateWithdrawal(uint256 _amount,
+   string calldata _currencyCode,
+   string calldata _conversionRate) public payable amountGreaterThanZero(_amount) {
+        //require(_amount > 0, "Amount must be greater than 0");
+        
+        Transaction memory txn = initTxn(TransactionType.WITHDRAW, _amount, _currencyCode, _conversionRate);
+        
+        ERC20(sargoAddress).transferFrom(
+            msg.sender,
+            address(this), 
+            txn.totalAmount
+        );
+    
+        emit TransactionInitiated(txn.id, msg.sender);
+   }
+
+   /**
+    * @dev Initiate a deposit transaction
+    * @param _amount Transaction amount
+    * @param _currencyCode The fiat currency code
+    * @param _conversionRate The current fiat conversion rate 
+    **/
+   function initiateDeposit(uint256 _amount,
+   string calldata _currencyCode,
+   string calldata _conversionRate) public amountGreaterThanZero(_amount) {
+        //require(_amount > 0, "Amount must be greater than 0");
+        
+        Transaction memory txn = initTxn(TransactionType.DEPOSIT, _amount, _currencyCode, _conversionRate);
+        
+        emit TransactionInitiated(txn.id, msg.sender);
+   }
+
+   /**
+     * @dev Agent accepts to fulfill the withdraw request
+     * The transaction is paired to the agent 
+     * @param _txnId The transaction id
+     * @param _phoneNumber the agent's phone number
+     */
+    function acceptWithdrawal(uint256 _txnId, string calldata _phoneNumber) public 
+     awaitAgent(_txnId) withdrawalsOnly(_txnId) nonClientOnly(_txnId) {
+         
+        Transaction storage txn = transactions[_txnId];
+        txn.agentAccount = msg.sender;
+        txn.status = Status.PAIRED;
+        txn.agentPhoneNumber = _phoneNumber;
+        
+        emit RequestAccepted(txn);
     }
-   
+
    /**
-    * @dev fiat received confirmation
-    * @param txHash The transaction hash
-    */
-    function topupFiatReceived(string calldata txHash) external onlyOwner {
-      /** TODO: topup - after agent receive mpesa payment, the confirm receipt*/
-      /** TODO: topup - escrow sends topup cUSD amount to user account*/
-      /** TODO: topup - escrow sends agent commission to agent account*/
-      /** TODO: topup - escrow sends sargo commision to treasury account*/
-      /** TODO: topup - user and agent are notified that the transaction has been completed*/
-      emit TopupFiatReceivedConfirmation(txHash);
+     * @dev Agent accepts to fulfill the deposit request 
+     * @param _txnId The transaction id
+     * @param _phoneNumber the agent's phone number
+     */
+    function acceptDeposit(uint256 _txnId, string calldata _phoneNumber) public
+        awaitAgent(_txnId) depositsOnly(_txnId)
+        nonClientOnly(_txnId)
+        sufficientBalance(_txnId)
+        payable {
+        
+        Transaction storage txn = transactions[_txnId];
+        txn.agentAccount = msg.sender;
+        txn.status = Status.PAIRED;
+        
+        require(
+          ERC20(sargoAddress).transferFrom(
+            msg.sender,
+            address(this), 
+            txn.totalAmount
+          ),
+          "You don't have enough amount to accept this request."
+        );
+        txn.agentPhoneNumber = _phoneNumber;
+        emit RequestAccepted(txn);
     }
 
     /**
-     * @dev Make a withdraw request
+     * @dev Client confirms payment sent to the agent
+     * @param _txnId The transaction id
      */
-     function withdrawRequest(uint256 amount) external onlyOwner {
-      /** TODO: withdrawal - user makes withdrawal request*/
-      emit WithdrawRequestCompleted(_sender, amount);
-     }
-
-   /**
-    * @dev Accept withdraw request
-    * @param txHash The transaction hash
-    */
-   function acceptWithdrawRequest(string calldata txHash) external onlyOwner {
-      /** TODO: withdrawal - agent accepts withdrawal request*/
-      /** TODO: withdrawal - withdrawal amount is sent to escrow*/
-      /** TODO: withdrawal - notify user agent accepted request and requests phone number from user*/
-      emit WithdrawRequestAccepted(txHash);
-   }
-
-   /**
-    * @dev Fiat sent confirmation
-    * @param txHash The transaction hash
-    */
-   function withdrawFiatSent(string calldata txHash) external onlyOwner {
-      /** TODO: withdrawal - agent sends mpesa to user and confirms via the dapp*/
-      emit WithdrawFiatSentConfirmation(txHash);
-   }
-
-   /**
-    * @dev fiat received confirmation
-    * @param txHash The transaction hash
-    */
-   function withdrawFiatReceived(string calldata txHash) external onlyOwner {
-      /** TODO: withdrawal - after user receives mpesa payment, the confirm receipt*/
-      /** TODO: withdrawal - escrow sends topup cUSD amount to agent account*/
-      /** TODO: withdrawal - escrow sends agent commission to agent account*/
-      /** TODO: withdrawal - escrow sends sargo commision to treasury account*/
-      /** TODO: withdrawal - user and agent are notified that the transaction has been completed*/
-      emit WithdrawFiatReceivedConfirmation(txHash);
-   }
-
-    /* 
-        ++interfaces
-        ++global variables
-        ++constructor
+    function clientConfirmPayment(uint256 _txnId) public
+     awaitConfirmation(_txnId)
+     clientOnly(_txnId) {
         
-        ++functions for - topup, withdraw, send, receive
+        Transaction storage txn = transactions[_txnId];
+        
+        require(!txn.clientApproved, "Client already confirmed payment");
+        txn.clientApproved = true;
+        
+        emit ClientConfirmed(txn);
+        
+        if (txn.agentApproved) {
+            txn.status = Status.CONFIRMED;
+            emit ConfirmationCompleted(txn);
+            completeTransaction(_txnId);
+        }
+    }
+
+    /**
+     * @dev Agent comnfirms payment has been received
+     * @param _txnId The transaction id
+     */
+    function agentConfirmPayment(uint256 _txnId) public 
+        awaitConfirmation(_txnId)
+        agentOnly(_txnId) {
+        
+        Transaction storage txn = transactions[_txnId];
+        
+        require(!txn.agentApproved, "Agent already confirmed payment");
+        txn.agentApproved = true;
+        
+        emit AgentConfirmed(txn);
+        
+        if (txn.clientApproved) {
+            txn.status = Status.CONFIRMED;
+            emit ConfirmationCompleted(txn);
+            completeTransaction(_txnId);
+        }
+    }
+
+    /**
+     * @dev Complete the transaction
+     * Transfer value to respective addresses
+     * @param _txnId The transaction id
+     **/ 
+    function completeTransaction(uint256 _txnId) public {
+        Transaction storage txn = transactions[_txnId];
+        require(txn.clientAccount == msg.sender || txn.agentAccount == msg.sender,
+            "Only involved accounts can complete the transaction");
+        require(txn.status == Status.CONFIRMED, "Transaction not confirmed by both parties");
+        
+        if (txn.txType == TransactionType.DEPOSIT) {
+            ERC20(sargoAddress).transfer(
+                txn.clientAccount,
+                txn.netAmount);
+        } else {
+            require(ERC20(sargoAddress).transfer(
+               txn.agentAccount, 
+               txn.netAmount),
+              "Transaction failed.");
+        }
+
+        /* Agent's commission fee */
+        require(ERC20(sargoAddress).transfer(
+                txn.agentAccount,
+                txn.agentFee),
+              "Agent fee transfer failed.");
+        
+        /* Treasury commission fee */
+        require(ERC20(sargoAddress).transfer(
+                treasuryAddress,
+                txn.treasuryFee),
+              "Transaction fee transfer failed.");
+
+        transactionsCounter++;
+
+        txn.status = Status.COMPLETED;
+        
+        emit TransactionCompleted(txn);
+    }
+
+    /**
+      * @dev Get transactions by index
+      * @param _txnId the Transaction id
+      * @return Transaction.
+      */
+    function getTransactionByIndex(uint256 _txnId) public view returns (Transaction memory) {
+        Transaction memory txn = transactions[_txnId];
+        return txn;
+    }
+
+    /**
+      * Get the next transaction request from transactions list.
+      * @param _txnId the transaction id
+      * @return Transaction
+      */
+    function getNextUnpairedTransaction(uint256 _txnId) 
+      public view returns (Transaction memory) {
+      Transaction storage txn;
+      uint256 transactionId = _txnId;
+      
+      /* limit transaction index */
+      if (_txnId > nextTransactionId) {
+         transactionId = nextTransactionId;
+      }
+
+      /* Traverse through transactions by index */
+      for (int index = int(transactionId); index >= 0; index--) {
+         txn = transactions[uint(index)];
+
+         if (txn.clientAccount != address(0) && txn.agentAccount == address(0)) {
+               return txn;
+         }
+      }
+
+      txn = transactions[nextTransactionId];
+
+      return txn;
+    }
+
+
+   /**
+    * Amount greater than zero
+    * @param _amount The amount
     */
+    modifier amountGreaterThanZero(uint256 _amount) {
+      require(_amount > 0, "Amount must be greater than 0");
+      _;
+    }
+    
+    /**
+     * Only agent can execute
+     * @param _txnId Transaction id
+     */
+    modifier agentOnly(uint256 _txnId) {
+        Transaction storage txn = transactions[_txnId];
+        require(msg.sender == txn.agentAccount, "Only agent can execute function");
+        _;
+    }
+    
+    /**
+     * Deposit transactions only.
+     */
+    modifier depositsOnly(uint256 _txnId) {
+         Transaction storage txn = transactions[_txnId];
+        require(txn.txType == TransactionType.DEPOSIT, 
+            "Deposit only");
+        _;
+    }
+    
+    /**
+     * Withdrawal transactions only.
+     * @param _txnId Transaction id.
+     */
+    modifier withdrawalsOnly(uint256 _txnId) {
+        Transaction storage txn = transactions[_txnId];
+        require(txn.txType == TransactionType.WITHDRAW,
+        "Withdrawal only");
+        _;
+    }
+    
+    /**
+     * Only client can execute
+     * @param _txnId The transaction id
+     */
+    modifier clientOnly(uint256 _txnId) {
+        Transaction storage txn = transactions[_txnId];
+        require(msg.sender == txn.clientAccount, "Only client can execute function");
+        _;
+    }
 
-    //Library functions candidates
-    /** TODO: set transaction struct  */
-    /** TODO: strToBytesHash */
-    /** TODO: notifications */
+    /**
+     * Prevents the client from running the logic
+     * @param _txnId The transaction id
+     */
+    modifier nonClientOnly(uint256 _txnId) {
+        Transaction storage txn = transactions[_txnId];
+        require(msg.sender != txn.clientAccount, "client can not be execute function");
+        _;
+    }
+    
+    /**
+     * Only paired transaction can execute.
+     * @param _txnId The transaction id
+     */
+    modifier awaitConfirmation(uint256 _txnId) {
+        Transaction storage txn = transactions[_txnId];
+        require(txn.status == Status.PAIRED, "Transaction is not accepted by agent.");
+        _;
+    }
+    
+    /**
+     * Prevents double pairing of agents to transactions.
+     * @param _txnId The transaction id
+     */
+    modifier awaitAgent(uint256 _txnId) {
+        Transaction storage txn = transactions[_txnId];
+        require(txn.status == Status.REQUEST, "Already accepted by agent");
+        _;
+    }
+    
+    /**
+     * Balance must be greater than total amount
+     * @param _txnId The transaction id
+     */
+    modifier sufficientBalance(uint256 _txnId) {
+        Transaction storage txn = transactions[_txnId];
+        require(ERC20(sargoAddress).balanceOf(address(msg.sender)) > txn.totalAmount,
+            "Insufficient balance");
+        _;
+    }
 
+   /**
+    * @dev Send amount
+    * @param _recipient Recipient address
+    * @param _amount Amount to transfer
+    * @param _currencyCode Fiat currency code
+    * @param _conversionRate Fiat conversion rate
+    */
+   function send( 
+      address _recipient, 
+      uint256 _amount,
+      string calldata _currencyCode,
+      string calldata _conversionRate) public payable whenActive amountGreaterThanZero(_amount) {
+      require(_recipient != getOwner());
+      require(_recipient != address(0), "Cannot use zero address");
+      //require(_amount > 0, "Amount must be greater than 0");
+      require(ERC20(sargoAddress).balanceOf(address(msg.sender)) > _amount,
+            "Insufficient balance");
+
+      Transaction memory txn = initTxn(
+         TransactionType.TRANSFER, 
+         _amount, _currencyCode, 
+         _conversionRate
+      );
+
+      txn.agentAccount = msg.sender;
+      txn.clientAccount = _recipient;
+
+      require(
+          ERC20(sargoAddress).transferFrom(
+            msg.sender,
+            _recipient, 
+            _amount
+          ),
+          "Insufficient balance"
+        );
+
+        txn.status = Status.COMPLETED;
+        
+      emit Transfer(msg.sender, _recipient, _amount);
+   }
 }
-
-/*
-    ++Deployment local/testnet
-    ++configs - envars
-    ++validation
-    ++error handling 
-    ++logging
- */
-
- /**
-    Escrow - contract
-    Common - contract
- */
