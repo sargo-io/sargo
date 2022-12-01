@@ -10,8 +10,18 @@ contract Ownable {
 
     address private owner;
 
+    /**
+     * Minting functions
+     */
+    bool public mintingComplete = false;
+
+    address public creator;
+    address public destroyer;
+
     event OwnerIsSet(
         address indexed oldOwner, address indexed newOwner);
+
+    event MintingComplete();
 
     /**
      * @dev check if caller is owner
@@ -21,6 +31,26 @@ contract Ownable {
         _;
     }
 
+    modifier canMint() {
+        require(!mintingComplete);
+        _;
+    }
+
+    modifier whenMintingComplete() {
+        require(mintingComplete);
+        _;
+    }
+
+    modifier onlyCreator() {
+        require(msg.sender == creator);
+        _;
+    }
+
+    modifier onlyDestroyer() {
+        require(msg.sender == destroyer);
+        _;
+    }
+    
     /**
      * @dev Initialize Ownable contract
      */
@@ -49,10 +79,28 @@ contract Ownable {
     }
 
     /**
-     *@dev check if caller is owner
+     * @dev check if caller is owner
+     * @return bool
      */
     function isOwner() public view returns (bool) {
         return msg.sender == owner;
     }
 
+    function setCreator(address _creator) external onlyOwner {
+        require(_creator != address(0), "Cannot use zero address");
+        creator = _creator;
+    }
+
+    function setDestroyer(address _destroyer) external onlyOwner {
+        require(_destroyer != address(0), "Cannot use zero address");
+        destroyer = _destroyer;
+    }
+
+    function completeMinting() external onlyCreator returns (bool) {
+        mintingComplete = true;
+        emit MintingComplete();
+
+        return true;
+    }
+ 
 }

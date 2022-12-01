@@ -87,6 +87,10 @@ library Math {
      */
     function pow(uint256 num, uint256 exponent) 
         internal pure returns (uint256) {
+
+        if(num == 0 && exponent == 0) 
+            return 1;
+            
         if (num == 0) 
             return 0;
 

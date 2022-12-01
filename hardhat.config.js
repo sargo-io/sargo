@@ -1,25 +1,33 @@
 require("@nomicfoundation/hardhat-toolbox");
-require('dotenv').config()
+require('dotenv').config();
 
-const CELO_TESTNET_PRIVATE_KEY = process.env.CELO_TESTNET_PRIVATE_KEY
-const CELO_MAINNET_PRIVATE_KEY = process.env.CELO_MAINNET_PRIVATE_KEY
+const CELO_SARGO_PRIVATE_KEY = process.env.CELO_SARGO_PRIVATE_KEY
 const CELOSCAN_API_KEY = process.env.CELOSCAN_API_KEY
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: "0.8.17",
+  /* solidity: {
+    version: "0.8.17",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200
+      }
+    }
+  }, */
   networks: {
     hardhat: {
       chainId: 1337
     },
     alfajores: {
       url: "https://alfajores-forno.celo-testnet.org",
-      accounts: [CELO_TESTNET_PRIVATE_KEY],
+      accounts: [CELO_SARGO_PRIVATE_KEY],
       chainId: 44787
     },
     celo: {
       url: "https://forno.celo.org",
-      accounts: [CELO_MAINNET_PRIVATE_KEY],
+      accounts: [CELO_SARGO_PRIVATE_KEY],
       chainId: 42220
     }
   },
