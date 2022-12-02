@@ -64,11 +64,11 @@ contract SargoEscrow is Ownable, Pausable {
 
    /** 
     * @dev Transaction status
-    * REQUEST - Transaction started, awaiting agent pairing
-    * PAIRED - Agent paired, awaiting for approval by agent and client
-    * CONFIRMED - Transaction confirmed by agent and client
-    * COMPLETED - Transaction completed, currency moved from escrow to recipient
-    * CANCELLED - Transaction cancelled, 
+    * REQUEST = 0 - Transaction started, awaiting agent pairing
+    * PAIRED = 1 - Agent paired, awaiting for approval by agent and client
+    * CONFIRMED = 2 - Transaction confirmed by agent and client
+    * COMPLETED = 3 - Transaction completed, currency moved from escrow to recipient
+    * CANCELLED = 4 - Transaction cancelled, 
     */
     enum Status {
       REQUEST,
@@ -292,6 +292,7 @@ contract SargoEscrow is Ownable, Pausable {
           "You don't have enough amount to accept this request."
         );
         txn.agentPhoneNumber = _phoneNumber;
+        
         emit RequestAccepted(txn);
     }
 
@@ -476,7 +477,7 @@ contract SargoEscrow is Ownable, Pausable {
      */
     modifier nonClientOnly(uint256 _txnId) {
         Transaction storage txn = transactions[_txnId];
-        require(msg.sender != txn.clientAccount, "client can not be execute function");
+        require(msg.sender != txn.clientAccount, "client can not execute function");
         _;
     }
     
