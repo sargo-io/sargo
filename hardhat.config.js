@@ -1,7 +1,7 @@
 require("@nomicfoundation/hardhat-toolbox");
 require('dotenv').config();
 
-const CELO_SARGO_PRIVATE_KEY = process.env.CELO_SARGO_PRIVATE_KEY
+const SARGO_CELO_PRIVATE_KEY = process.env.SARGO_CELO_PRIVATE_KEY
 const CELOSCAN_API_KEY = process.env.CELOSCAN_API_KEY
 
 /** @type import('hardhat/config').HardhatUserConfig */
@@ -22,13 +22,17 @@ module.exports = {
     },
     alfajores: {
       url: "https://alfajores-forno.celo-testnet.org",
-      accounts: [CELO_SARGO_PRIVATE_KEY],
-      chainId: 44787
+      accounts: [SARGO_CELO_PRIVATE_KEY],
+      chainId: 44787,
+      gas: "auto",
+      gasPrice: "auto"
     },
     celo: {
       url: "https://forno.celo.org",
-      accounts: [CELO_SARGO_PRIVATE_KEY],
-      chainId: 42220
+      accounts: [SARGO_CELO_PRIVATE_KEY],
+      chainId: 42220,
+      gas: "auto",
+      gasPrice: "auto"
     }
   },
   etherscan: {
