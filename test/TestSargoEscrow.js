@@ -265,5 +265,12 @@ describe('Sargo Token, Escrow contracts deployment', () => {
 
         });
     });
+
+    describe('Gas Transactions', function () {
+        it('Should get the estimated gas price', async() => {
+
+        });
+
+    });
  
 });
