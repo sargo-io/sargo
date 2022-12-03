@@ -67,7 +67,7 @@ describe('Sargo Token, Escrow contracts deployment', () => {
 
         it('Should set the right escrow address', async() => {
             const { sargoEscrow, sargoToken } = await loadFixture(deploySargoEscrowFixture);
-            expect(await sargoEscrow.getSargoTokenAddress()).to.equal(sargoToken.address);
+            expect(await sargoEscrow.getCusdTokenAddress()).to.equal(sargoToken.address);
         });
 
         it('Should set the right tresury address', async() => {

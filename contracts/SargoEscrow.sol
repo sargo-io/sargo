@@ -41,7 +41,7 @@ contract SargoEscrow is Ownable, Pausable {
    /**
     * @dev Sargo address 
     */
-    address internal sargoTokenAddress = 0xD451170e2b7348058fE5BfCe7B62e22C372305b2;
+    address internal cusdTokenAddress = 0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1;
 
     /**
      * @dev Treasury address
@@ -101,18 +101,18 @@ contract SargoEscrow is Ownable, Pausable {
 
    /**
     * @dev Initialize contract
-    * @param _sargoTokenAddress Sargo address
+    * @param _cusdTokenAddress cUSD token address
     * @param _agentFee Agent fee
     * @param _sargoFee Sargo fee
     * @param _treasuryAddress Sargo treasury address
     */
   constructor(
-    address _sargoTokenAddress, 
+    address _cusdTokenAddress, 
     uint256 _agentFee, 
     uint256 _sargoFee, 
     address _treasuryAddress) {
-    if (_sargoTokenAddress != address(0)) 
-        sargoTokenAddress = _sargoTokenAddress;
+    if (_cusdTokenAddress != address(0)) 
+        cusdTokenAddress = _cusdTokenAddress;
 
     if (_treasuryAddress != address(0)) 
         treasuryAddress = _treasuryAddress;
@@ -136,11 +136,11 @@ contract SargoEscrow is Ownable, Pausable {
       uint256 amount);
 
    /**
-    * @dev Get the Sargo address
+    * @dev Get the cUSD address
     * @return address
     */
-   function getSargoTokenAddress() public view returns(address) {
-        return sargoTokenAddress;
+   function getCusdTokenAddress() public view returns(address) {
+        return cusdTokenAddress;
    }
 
    /**
@@ -228,7 +228,7 @@ contract SargoEscrow is Ownable, Pausable {
    string calldata _conversionRate) public payable amountGreaterThanZero(_amount) {
         Transaction storage txn = initTxn(TransactionType.WITHDRAW, _amount, _currencyCode, _conversionRate);
         
-        ERC20(sargoTokenAddress).transferFrom(
+        ERC20(cusdTokenAddress).transferFrom(
             msg.sender,
             address(this), 
             txn.totalAmount
@@ -284,7 +284,7 @@ contract SargoEscrow is Ownable, Pausable {
         txn.status = Status.PAIRED;
         
         require(
-          ERC20(sargoTokenAddress).transferFrom(
+          ERC20(cusdTokenAddress).transferFrom(
             msg.sender,
             address(this), 
             txn.totalAmount
@@ -352,24 +352,24 @@ contract SargoEscrow is Ownable, Pausable {
         require(txn.status == Status.CONFIRMED, "Transaction not confirmed by both parties");
         
         if (txn.txType == TransactionType.DEPOSIT) {
-            ERC20(sargoTokenAddress).transfer(
+            ERC20(cusdTokenAddress).transfer(
                 txn.clientAccount,
                 txn.netAmount);
         } else {
-            require(ERC20(sargoTokenAddress).transfer(
+            require(ERC20(cusdTokenAddress).transfer(
                txn.agentAccount, 
                txn.netAmount),
               "Transaction failed.");
         }
 
         /* Agent's commission fee */
-        require(ERC20(sargoTokenAddress).transfer(
+        require(ERC20(cusdTokenAddress).transfer(
                 txn.agentAccount,
                 txn.agentFee),
               "Agent fee transfer failed.");
         
         /* Treasury commission fee */
-        require(ERC20(sargoTokenAddress).transfer(
+        require(ERC20(cusdTokenAddress).transfer(
                 treasuryAddress,
                 txn.treasuryFee),
               "Transaction fee transfer failed.");
@@ -507,7 +507,7 @@ contract SargoEscrow is Ownable, Pausable {
      */
     modifier sufficientBalance(uint256 _txnId) {
         Transaction storage txn = transactions[_txnId];
-        require(ERC20(sargoTokenAddress).balanceOf(address(msg.sender)) > txn.totalAmount,
+        require(ERC20(cusdTokenAddress).balanceOf(address(msg.sender)) > txn.totalAmount,
             "Insufficient balance");
         _;
     }
@@ -526,7 +526,7 @@ contract SargoEscrow is Ownable, Pausable {
       string calldata _conversionRate) public payable whenActive amountGreaterThanZero(_amount) {
       require(_recipient != getOwner());
       require(_recipient != address(0), "Cannot use zero address");
-      require(ERC20(sargoTokenAddress).balanceOf(address(msg.sender)) > _amount,
+      require(ERC20(cusdTokenAddress).balanceOf(address(msg.sender)) > _amount,
             "Insufficient balance");
 
       Transaction storage txn = initTxn(
@@ -539,7 +539,7 @@ contract SargoEscrow is Ownable, Pausable {
       txn.clientAccount = _recipient;
 
       require(
-          ERC20(sargoTokenAddress).transferFrom(
+          ERC20(cusdTokenAddress).transferFrom(
             msg.sender,
             _recipient, 
             _amount

@@ -2,8 +2,8 @@ require('dotenv').config();
 
 async function main() {
 
-    const CELO_SARGO_ADDRESS = process.env.CELO_SARGO_ADDRESS;
-    const CELO_TREASURY_ADDRESS = process.env.CELO_TREASURY_ADDRESS;
+    const CELO_CUSD_TOKEN_ADDRESS = process.env.CELO_CUSD_TOKEN_ADDRESS;
+    const SARGO_TREASURY_ADDRESS = process.env.SARGO_TREASURY_ADDRESS;
 
     const SARGO_AGENT_FEE = process.env.SARGO_AGENT_FEE;
     const SARGO_TREASURY_FEE = process.env.SARGO_TREASURY_FEE;
@@ -27,15 +27,14 @@ async function main() {
 
     const SargoEscrow = await ethers.getContractFactory("SargoEscrow");
     const sargoEscrow = await SargoEscrow.deploy(
-        CELO_SARGO_ADDRESS, 
+        CELO_CUSD_TOKEN_ADDRESS, 
         SARGO_AGENT_FEE, 
         SARGO_TREASURY_FEE, 
-        CELO_TREASURY_ADDRESS
+        SARGO_TREASURY_ADDRESS
     );
     await sargoEscrow.deployed();
 
   console.log('SargoEscrow deployed to: ', sargoEscrow.address);
-
 
 }
 
