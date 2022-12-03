@@ -69,8 +69,8 @@ contract SargoToken is IERC20, Ownable, Pausable {
         require(amount > 0, "Cannot use zero value");
         require( balanceOf[sender] >= amount, "Balance not enough" );
         require( balanceOf[recipient] + amount > balanceOf[recipient], "Cannot overflow" );
-        require( amount <= allowance[sender][msg.sender], "Cannot over allowance");
-        
+        require( amount <= allowance[sender][msg.sender], "Check the allowance");
+
         allowance[sender][msg.sender] = Math.sub(allowance[sender][msg.sender], amount);
         balanceOf[sender] = Math.sub(balanceOf[sender], amount);
         balanceOf[recipient] = Math.add(balanceOf[recipient], amount);

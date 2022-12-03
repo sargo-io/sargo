@@ -23,12 +23,16 @@ module.exports = {
     alfajores: {
       url: "https://alfajores-forno.celo-testnet.org",
       accounts: [CELO_SARGO_PRIVATE_KEY],
-      chainId: 44787
+      chainId: 44787,
+      gas: "auto",
+      gasPrice: "auto"
     },
     celo: {
       url: "https://forno.celo.org",
       accounts: [CELO_SARGO_PRIVATE_KEY],
-      chainId: 42220
+      chainId: 42220,
+      gas: "auto",
+      gasPrice: "auto"
     }
   },
   etherscan: {

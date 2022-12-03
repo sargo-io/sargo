@@ -106,25 +106,25 @@ contract SargoEscrow is Ownable, Pausable {
     * @param _sargoFee Sargo fee
     * @param _treasuryAddress Sargo treasury address
     */
-   constructor(
-      address _sargoTokenAddress, 
-      uint256 _agentFee, 
-      uint256 _sargoFee, 
-      address _treasuryAddress) {
-      if (_sargoTokenAddress != address(0)) 
-         sargoTokenAddress = _sargoTokenAddress;
+  constructor(
+    address _sargoTokenAddress, 
+    uint256 _agentFee, 
+    uint256 _sargoFee, 
+    address _treasuryAddress) {
+    if (_sargoTokenAddress != address(0)) 
+        sargoTokenAddress = _sargoTokenAddress;
 
-      if (_treasuryAddress != address(0)) 
-         treasuryAddress = _treasuryAddress;
+    if (_treasuryAddress != address(0)) 
+        treasuryAddress = _treasuryAddress;
 
-      if (_agentFee > 0) 
-         agentFee = _agentFee;
+    if (_agentFee > 0) 
+        agentFee = _agentFee;
 
-      if (_sargoFee > 0) 
-         sargoFee = _sargoFee;
-   }
+    if (_sargoFee > 0) 
+        sargoFee = _sargoFee;
+  }
 
-    event RequestAccepted(Transaction txn);
+  event RequestAccepted(Transaction txn);
     event TransactionInitiated(uint txId, address txOwner);
     event ClientConfirmed(Transaction txn);
     event AgentConfirmed(Transaction txn);

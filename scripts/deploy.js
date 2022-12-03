@@ -5,6 +5,9 @@ async function main() {
     const CELO_SARGO_ADDRESS = process.env.CELO_SARGO_ADDRESS;
     const CELO_TREASURY_ADDRESS = process.env.CELO_TREASURY_ADDRESS;
 
+    const SARGO_AGENT_FEE = process.env.SARGO_AGENT_FEE;
+    const SARGO_TREASURY_FEE = process.env.SARGO_TREASURY_FEE;
+
     if (network.name === "hardhat") {
         console.warn(
         "You are trying to deploy a contract to the Hardhat Network, which " +
@@ -22,16 +25,16 @@ async function main() {
         console.log('Token address: ', token.address); 
     */
 
-    const Sargo = await ethers.getContractFactory("Sargo");
-    const sargo = await Sargo.deploy(
+    const SargoEscrow = await ethers.getContractFactory("SargoEscrow");
+    const sargoEscrow = await SargoEscrow.deploy(
         CELO_SARGO_ADDRESS, 
-        0, 
-        0, 
+        SARGO_AGENT_FEE, 
+        SARGO_TREASURY_FEE, 
         CELO_TREASURY_ADDRESS
     );
-    await sargo.deployed();
+    await sargoEscrow.deployed();
 
-  console.log('Sargo deployed to: ', sargo.address);
+  console.log('SargoEscrow deployed to: ', sargoEscrow.address);
 
 
 }
