@@ -5,18 +5,12 @@ pragma solidity ^0.8.17;
  import "hardhat/console.sol";
  import './Ownable.sol';
  import './Pausable.sol';
- import './Math.sol';
 
 /** 
  * @title Sargo
  * @dev Sargo escrow contract  
  */
 contract SargoEscrow is Ownable, Pausable {
-   
-   /**
-    * @dev Safe math library
-    */
-   using Math for uint256;
 
    /**
     * @dev Transaction index
