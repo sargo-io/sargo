@@ -105,17 +105,16 @@ contract SargoEscrow is Ownable, Pausable {
     uint256 _agentFee, 
     uint256 _sargoFee, 
     address _treasuryAddress) {
-    if (_cusdTokenAddress != address(0)) 
-        cusdTokenAddress = _cusdTokenAddress;
 
-    if (_treasuryAddress != address(0)) 
-        treasuryAddress = _treasuryAddress;
+      require(_cusdTokenAddress != address(0), "Invalid token address");
+      require(_treasuryAddress != address(0), "Invalid treasury address");
+      require(_agentFee > 0, "Agent fee required");
+      require(_sargoFee > 0, "Treasury fee required");
 
-    if (_agentFee > 0) 
-        agentFee = _agentFee;
-
-    if (_sargoFee > 0) 
-        sargoFee = _sargoFee;
+      cusdTokenAddress = _cusdTokenAddress;
+      treasuryAddress = _treasuryAddress;
+      agentFee = _agentFee;
+      sargoFee = _sargoFee;
   }
 
   event RequestAccepted(Transaction txn);
