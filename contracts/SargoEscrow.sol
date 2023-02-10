@@ -20,12 +20,12 @@ contract SargoEscrow is Ownable, Pausable {
    /**
     * @dev Agent's fee
     */
-   uint256 private agentFee = 50000000000000000;
+   uint256 private agentFee;
 
    /**
     * @dev Sargo fee
     */
-   uint256 private sargoFee = 40000000000000000;
+   uint256 private sargoFee;
 
    /**
     * @dev Transactions counter
@@ -35,12 +35,12 @@ contract SargoEscrow is Ownable, Pausable {
    /**
     * @dev Sargo address 
     */
-    address internal cusdTokenAddress = 0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1;
+    address internal cusdTokenAddress;
 
     /**
      * @dev Treasury address
      */
-    address internal treasuryAddress = 0x43513B39D89d3313162e3399Db2f573c023B4d17;
+    address internal treasuryAddress;
 
    /**
     * @dev Transactions mappings
@@ -164,7 +164,7 @@ contract SargoEscrow is Ownable, Pausable {
     * @dev Get the next transaction index
     * @return uint256
     */
-   function getNextTransactionIndex() public view returns(uint256) {
+   function getNextTransactionId() public view returns(uint256) {
       return nextTransactionId;
    }
 
