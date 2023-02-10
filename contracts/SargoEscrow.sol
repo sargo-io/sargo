@@ -30,7 +30,7 @@ contract SargoEscrow is Ownable, Pausable {
    /**
     * @dev Transactions counter
     */
-   uint256 private transactionsCounter = 0;
+   uint256 private completedTransactions = 0;
 
    /**
     * @dev Sargo address 
@@ -173,7 +173,7 @@ contract SargoEscrow is Ownable, Pausable {
     * @return uint256
     */
    function getTransactionsCount() public view returns (uint256) {
-      return  transactionsCounter;
+      return  completedTransactions;
    }
 
    /**
@@ -375,7 +375,7 @@ contract SargoEscrow is Ownable, Pausable {
                 txn.treasuryFee),
               "Transaction fee transfer failed.");
 
-        transactionsCounter++;
+        completedTransactions++;
 
         txn.status = Status.COMPLETED;
         
