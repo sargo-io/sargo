@@ -218,7 +218,7 @@ contract SargoEscrow is Ownable, Pausable {
     **/
    function initiateWithdrawal(uint256 _amount,
    string calldata _currencyCode,
-   string calldata _conversionRate) public amountGreaterThanZero(_amount) {
+   string calldata _conversionRate) public amountGreaterThanZero(_amount) whenActive {
         Transaction storage txn = initTxn(TransactionType.WITHDRAW, _amount, _currencyCode, _conversionRate);
         
         emit TransactionInitiated(txn.id, msg.sender);
@@ -232,7 +232,7 @@ contract SargoEscrow is Ownable, Pausable {
     **/
    function initiateDeposit(uint256 _amount,
    string calldata _currencyCode,
-   string calldata _conversionRate) public amountGreaterThanZero(_amount) {
+   string calldata _conversionRate) public amountGreaterThanZero(_amount) whenActive {
         Transaction storage txn = initTxn(TransactionType.DEPOSIT, _amount, _currencyCode, _conversionRate);
         
         emit TransactionInitiated(txn.id, msg.sender);
@@ -249,6 +249,7 @@ contract SargoEscrow is Ownable, Pausable {
       withdrawalsOnly(_txnId) 
       nonClientOnly(_txnId) 
       sufficientBalance(_txnId) 
+      whenActive
       payable {
          
         Transaction storage txn = transactions[_txnId];
@@ -278,6 +279,7 @@ contract SargoEscrow is Ownable, Pausable {
       depositsOnly(_txnId)
       nonClientOnly(_txnId)
       sufficientBalance(_txnId)
+      whenActive
       payable {
         
         Transaction storage txn = transactions[_txnId];
@@ -303,7 +305,8 @@ contract SargoEscrow is Ownable, Pausable {
      */
     function clientConfirmPayment(uint256 _txnId) public
      awaitConfirmation(_txnId)
-     clientOnly(_txnId) {
+     clientOnly(_txnId) 
+     whenActive {
         
         Transaction storage txn = transactions[_txnId];
         
@@ -325,7 +328,8 @@ contract SargoEscrow is Ownable, Pausable {
      */
     function agentConfirmPayment(uint256 _txnId) public 
         awaitConfirmation(_txnId)
-        agentOnly(_txnId) {
+        agentOnly(_txnId) 
+        whenActive {
         
         Transaction storage txn = transactions[_txnId];
         
@@ -346,7 +350,7 @@ contract SargoEscrow is Ownable, Pausable {
      * Transfer value to respective addresses
      * @param _txnId The transaction id
      **/ 
-    function completeTransaction(uint256 _txnId) public {
+    function completeTransaction(uint256 _txnId) public whenActive {
         Transaction storage txn = transactions[_txnId];
         require(txn.clientAccount == msg.sender || txn.agentAccount == msg.sender,
             "Only involved accounts can complete the transaction");
@@ -420,7 +424,6 @@ contract SargoEscrow is Ownable, Pausable {
 
       return txn;
     }
-
 
    /**
     * Amount greater than zero
