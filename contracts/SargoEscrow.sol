@@ -5,18 +5,12 @@ pragma solidity ^0.8.17;
  import "hardhat/console.sol";
  import './Ownable.sol';
  import './Pausable.sol';
- import './Math.sol';
 
 /** 
  * @title Sargo
  * @dev Sargo escrow contract  
  */
 contract SargoEscrow is Ownable, Pausable {
-   
-   /**
-    * @dev Safe math library
-    */
-   using Math for uint256;
 
    /**
     * @dev Transaction index
@@ -111,29 +105,28 @@ contract SargoEscrow is Ownable, Pausable {
     uint256 _agentFee, 
     uint256 _sargoFee, 
     address _treasuryAddress) {
-    if (_cusdTokenAddress != address(0)) 
-        cusdTokenAddress = _cusdTokenAddress;
 
-    if (_treasuryAddress != address(0)) 
-        treasuryAddress = _treasuryAddress;
+      require(_cusdTokenAddress != address(0), "Invalid token address");
+      require(_treasuryAddress != address(0), "Invalid treasury address");
+      require(_agentFee > 0, "Agent fee required");
+      require(_sargoFee > 0, "Treasury fee required");
 
-    if (_agentFee > 0) 
-        agentFee = _agentFee;
-
-    if (_sargoFee > 0) 
-        sargoFee = _sargoFee;
+      cusdTokenAddress = _cusdTokenAddress;
+      treasuryAddress = _treasuryAddress;
+      agentFee = _agentFee;
+      sargoFee = _sargoFee;
   }
 
   event RequestAccepted(Transaction txn);
-    event TransactionInitiated(uint txId, address txOwner);
-    event ClientConfirmed(Transaction txn);
-    event AgentConfirmed(Transaction txn);
-    event ConfirmationCompleted(Transaction txn);
-    event TransactionCompleted(Transaction txn);
-   event Transfer(
-      address indexed sender, 
-      address indexed recipient, 
-      uint256 amount);
+  event TransactionInitiated(uint txId, address txOwner);
+  event ClientConfirmed(Transaction txn);
+  event AgentConfirmed(Transaction txn);
+  event ConfirmationCompleted(Transaction txn);
+  event TransactionCompleted(Transaction txn);
+  event Transfer(
+    address indexed sender, 
+    address indexed recipient, 
+    uint256 amount);
 
    /**
     * @dev Get the cUSD address
@@ -225,15 +218,9 @@ contract SargoEscrow is Ownable, Pausable {
     **/
    function initiateWithdrawal(uint256 _amount,
    string calldata _currencyCode,
-   string calldata _conversionRate) public payable amountGreaterThanZero(_amount) {
+   string calldata _conversionRate) public amountGreaterThanZero(_amount) {
         Transaction storage txn = initTxn(TransactionType.WITHDRAW, _amount, _currencyCode, _conversionRate);
         
-        ERC20(cusdTokenAddress).transferFrom(
-            msg.sender,
-            address(this), 
-            txn.totalAmount
-        );
-    
         emit TransactionInitiated(txn.id, msg.sender);
    }
 
@@ -258,12 +245,25 @@ contract SargoEscrow is Ownable, Pausable {
      * @param _phoneNumber the agent's phone number
      */
     function acceptWithdrawal(uint256 _txnId, string calldata _phoneNumber) public 
-     awaitAgent(_txnId) withdrawalsOnly(_txnId) nonClientOnly(_txnId) {
+      awaitAgent(_txnId) 
+      withdrawalsOnly(_txnId) 
+      nonClientOnly(_txnId) 
+      sufficientBalance(_txnId) 
+      payable {
          
         Transaction storage txn = transactions[_txnId];
         txn.agentAccount = msg.sender;
         txn.status = Status.PAIRED;
         txn.agentPhoneNumber = _phoneNumber;
+
+        require(
+        ERC20(cusdTokenAddress).transferFrom(
+            msg.sender,
+            address(this), 
+            txn.totalAmount
+        ),
+        "You don't have enough amount to accept this request."
+        );
         
         emit RequestAccepted(txn);
     }
@@ -274,14 +274,16 @@ contract SargoEscrow is Ownable, Pausable {
      * @param _phoneNumber the agent's phone number
      */
     function acceptDeposit(uint256 _txnId, string calldata _phoneNumber) public
-        awaitAgent(_txnId) depositsOnly(_txnId)
-        nonClientOnly(_txnId)
-        sufficientBalance(_txnId)
-        payable {
+      awaitAgent(_txnId) 
+      depositsOnly(_txnId)
+      nonClientOnly(_txnId)
+      sufficientBalance(_txnId)
+      payable {
         
         Transaction storage txn = transactions[_txnId];
         txn.agentAccount = msg.sender;
         txn.status = Status.PAIRED;
+        txn.agentPhoneNumber = _phoneNumber;
         
         require(
           ERC20(cusdTokenAddress).transferFrom(
@@ -291,7 +293,6 @@ contract SargoEscrow is Ownable, Pausable {
           ),
           "You don't have enough amount to accept this request."
         );
-        txn.agentPhoneNumber = _phoneNumber;
         
         emit RequestAccepted(txn);
     }
