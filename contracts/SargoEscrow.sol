@@ -20,27 +20,27 @@ contract SargoEscrow is Ownable, Pausable {
    /**
     * @dev Agent's fee
     */
-   uint256 private agentFee = 50000000000000000;
+   uint256 private agentFee;
 
    /**
     * @dev Sargo fee
     */
-   uint256 private sargoFee = 40000000000000000;
+   uint256 private sargoFee;
 
    /**
     * @dev Transactions counter
     */
-   uint256 private transactionsCounter = 0;
+   uint256 private completedTransactions = 0;
 
    /**
     * @dev Sargo address 
     */
-    address internal cusdTokenAddress = 0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1;
+    address internal cusdTokenAddress;
 
     /**
      * @dev Treasury address
      */
-    address internal treasuryAddress = 0x43513B39D89d3313162e3399Db2f573c023B4d17;
+    address internal treasuryAddress;
 
    /**
     * @dev Transactions mappings
@@ -164,7 +164,7 @@ contract SargoEscrow is Ownable, Pausable {
     * @dev Get the next transaction index
     * @return uint256
     */
-   function getNextTransactionIndex() public view returns(uint256) {
+   function getNextTransactionId() public view returns(uint256) {
       return nextTransactionId;
    }
 
@@ -173,7 +173,7 @@ contract SargoEscrow is Ownable, Pausable {
     * @return uint256
     */
    function getTransactionsCount() public view returns (uint256) {
-      return  transactionsCounter;
+      return  completedTransactions;
    }
 
    /**
@@ -218,7 +218,7 @@ contract SargoEscrow is Ownable, Pausable {
     **/
    function initiateWithdrawal(uint256 _amount,
    string calldata _currencyCode,
-   string calldata _conversionRate) public amountGreaterThanZero(_amount) {
+   string calldata _conversionRate) public amountGreaterThanZero(_amount) whenActive {
         Transaction storage txn = initTxn(TransactionType.WITHDRAW, _amount, _currencyCode, _conversionRate);
         
         emit TransactionInitiated(txn.id, msg.sender);
@@ -232,7 +232,7 @@ contract SargoEscrow is Ownable, Pausable {
     **/
    function initiateDeposit(uint256 _amount,
    string calldata _currencyCode,
-   string calldata _conversionRate) public amountGreaterThanZero(_amount) {
+   string calldata _conversionRate) public amountGreaterThanZero(_amount) whenActive {
         Transaction storage txn = initTxn(TransactionType.DEPOSIT, _amount, _currencyCode, _conversionRate);
         
         emit TransactionInitiated(txn.id, msg.sender);
@@ -249,6 +249,7 @@ contract SargoEscrow is Ownable, Pausable {
       withdrawalsOnly(_txnId) 
       nonClientOnly(_txnId) 
       sufficientBalance(_txnId) 
+      whenActive
       payable {
          
         Transaction storage txn = transactions[_txnId];
@@ -278,6 +279,7 @@ contract SargoEscrow is Ownable, Pausable {
       depositsOnly(_txnId)
       nonClientOnly(_txnId)
       sufficientBalance(_txnId)
+      whenActive
       payable {
         
         Transaction storage txn = transactions[_txnId];
@@ -303,7 +305,8 @@ contract SargoEscrow is Ownable, Pausable {
      */
     function clientConfirmPayment(uint256 _txnId) public
      awaitConfirmation(_txnId)
-     clientOnly(_txnId) {
+     clientOnly(_txnId) 
+     whenActive {
         
         Transaction storage txn = transactions[_txnId];
         
@@ -325,7 +328,8 @@ contract SargoEscrow is Ownable, Pausable {
      */
     function agentConfirmPayment(uint256 _txnId) public 
         awaitConfirmation(_txnId)
-        agentOnly(_txnId) {
+        agentOnly(_txnId) 
+        whenActive {
         
         Transaction storage txn = transactions[_txnId];
         
@@ -346,7 +350,7 @@ contract SargoEscrow is Ownable, Pausable {
      * Transfer value to respective addresses
      * @param _txnId The transaction id
      **/ 
-    function completeTransaction(uint256 _txnId) public {
+    function completeTransaction(uint256 _txnId) public whenActive {
         Transaction storage txn = transactions[_txnId];
         require(txn.clientAccount == msg.sender || txn.agentAccount == msg.sender,
             "Only involved accounts can complete the transaction");
@@ -375,7 +379,7 @@ contract SargoEscrow is Ownable, Pausable {
                 txn.treasuryFee),
               "Transaction fee transfer failed.");
 
-        transactionsCounter++;
+        completedTransactions++;
 
         txn.status = Status.COMPLETED;
         
@@ -420,7 +424,6 @@ contract SargoEscrow is Ownable, Pausable {
 
       return txn;
     }
-
 
    /**
     * Amount greater than zero
