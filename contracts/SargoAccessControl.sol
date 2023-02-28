@@ -2,13 +2,12 @@
 pragma solidity ^0.8.17;
 
 import "hardhat/console.sol";
+ import "@openzeppelin/contracts/access/AccessControl.sol";
 
 /**
- * @title Identity
- * @dev Identity contract - manages account access 
- * to make update to contracts
+ * @title SargoAccessControl
  */
-contract Identity {
+contract SargoAccessControl is AccessControl {
 
     bytes32 private constant ADMIN = keccak256(abi.encodePacked('ADMIN'));
     bytes32 private constant USER = keccak256(abi.encodePacked('USER'));
