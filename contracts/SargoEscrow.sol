@@ -348,7 +348,6 @@ contract SargoEscrow is SargoOwnable, SargoPausable {
       emit TransactionCompleted(_txn);
   }
 
-
   /**
     * @dev Cancel a request request
     * @param _txnId The transaction id
@@ -530,8 +529,7 @@ contract SargoEscrow is SargoOwnable, SargoPausable {
     address _recipient, 
     uint256 _amount,
     string calldata _currencyCode,
-    string calldata _conversionRate, 
-    string memory _paymentMethod) public payable whenNotPaused amountGreaterThanZero(_amount) {
+    string calldata _conversionRate) public payable whenNotPaused amountGreaterThanZero(_amount) {
     require(_recipient != owner());
     require(_recipient != address(0), "Cannot use zero address");
     require(ERC20(cusdTokenAddress).balanceOf(address(msg.sender)) > _amount,
@@ -541,7 +539,7 @@ contract SargoEscrow is SargoOwnable, SargoPausable {
         TransactionType.TRANSFER, 
         _amount, _currencyCode, 
         _conversionRate, 
-        _paymentMethod
+        'TOKEN'
     );
 
     _txn.agentAccount = msg.sender;
