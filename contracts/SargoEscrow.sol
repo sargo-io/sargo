@@ -102,432 +102,462 @@ contract SargoEscrow is SargoOwnable, SargoPausable {
   event AgentConfirmed(Transaction txn);
   event ConfirmationCompleted(Transaction txn);
   event TransactionCompleted(Transaction txn);
+  event TransactionCancelled(Transaction txn, string reason);
   event Transfer(
     address indexed sender, 
     address indexed recipient, 
     uint256 amount);
 
-   /**
-    * @dev Initialize a transaction
-    * @param _txType Transaction type
-    * @param _amount Transaction amount
-    * @param _currencyCode Fiat currency code
-    * @param _conversionRate Fiat conversion rate
-    * @return Transaction
-    */
-   function initTxn(
-      TransactionType _txType, 
-      uint256 _amount,
-      string memory _currencyCode,
-      string memory _conversionRate, 
-      string memory _paymentMethod) private returns (Transaction storage) {
-      uint256 txId = nextTransactionId;
-      uint256 totalAmount = _amount + (sargoFee + agentFee);
-      Transaction storage _txn = transactions[txId];
-      _txn.id = txId;
-      //_txn.refNumber = 
-      _txn.txType = _txType;
-      _txn.clientAccount = msg.sender;
-      _txn.status = Status.REQUEST;
-      _txn.currencyCode = _currencyCode;
-      _txn.conversionRate = _conversionRate;
-      _txn.tokenName = 'cUSD';
-      _txn.totalAmount = totalAmount;
-      _txn.netAmount = _amount;
-      _txn.agentFee = agentFee;
-      _txn.treasuryFee = sargoFee;
-      _txn.agentApproved = false;
-      _txn.clientApproved = false;
-      _txn.paymentMethod = _paymentMethod;
-      _txn.timestamp = block.timestamp;
+  /**
+  * @dev Initialize a transaction
+  * @param _txType Transaction type
+  * @param _amount Transaction amount
+  * @param _currencyCode Fiat currency code
+  * @param _conversionRate Fiat conversion rate
+  * @return Transaction
+  */
+  function initTxn(
+    TransactionType _txType, 
+    uint256 _amount,
+    string memory _currencyCode,
+    string memory _conversionRate, 
+    string memory _paymentMethod) private returns (Transaction storage) {
+    uint256 txId = nextTransactionId;
+    uint256 totalAmount = _amount + (sargoFee + agentFee);
+    Transaction storage _txn = transactions[txId];
+    _txn.id = txId;
+    //_txn.refNumber = 
+    _txn.txType = _txType;
+    _txn.clientAccount = msg.sender;
+    _txn.status = Status.REQUEST;
+    _txn.currencyCode = _currencyCode;
+    _txn.conversionRate = _conversionRate;
+    _txn.tokenName = 'cUSD';
+    _txn.totalAmount = totalAmount;
+    _txn.netAmount = _amount;
+    _txn.agentFee = agentFee;
+    _txn.treasuryFee = sargoFee;
+    _txn.agentApproved = false;
+    _txn.clientApproved = false;
+    _txn.paymentMethod = _paymentMethod;
+    _txn.timestamp = block.timestamp;
 
-      nextTransactionId++;
+    nextTransactionId++;
 
-      return _txn;
-   }
+    return _txn;
+  }
 
   /**
-    * @dev Initiate a deposit transaction
-    * @param _amount Transaction amount
-    * @param _currencyCode The fiat currency code
-    * @param _conversionRate The current fiat conversion rate 
-    **/
-   function initiateDeposit(uint256 _amount,
-   string calldata _currencyCode,
-   string calldata _conversionRate,  
-   string memory _paymentMethod) public amountGreaterThanZero(_amount) whenNotPaused {
-
-        Transaction storage _txn = initTxn(
-          TransactionType.DEPOSIT, 
-          _amount, 
-          _currencyCode, 
-          _conversionRate, 
-          _paymentMethod
-        );
-        
-        emit TransactionInitiated(_txn.id, msg.sender);
-   }
-
-   /**
-    * @dev Initiate a withdrawal transaction
-    * @param _amount Transaction amount
-    * @param _currencyCode The fiat currency code
-    * @param _conversionRate The current fiat conversion rate
-    **/
-   function initiateWithdrawal(uint256 _amount,
-   string calldata _currencyCode,
-   string calldata _conversionRate,  
-   string memory _paymentMethod) public amountGreaterThanZero(_amount) whenNotPaused {
-
-        Transaction storage _txn = initTxn(
-          TransactionType.WITHDRAW, 
-          _amount, 
-          _currencyCode, 
-          _conversionRate, 
-          _paymentMethod
-        );
-        
-        emit TransactionInitiated(_txn.id, msg.sender);
-   }
-
-   /**
-     * @dev Agent accepts to fulfill the deposit request 
-     * @param _txnId The transaction id
-     * @param _phoneNumber the agent's phone number
-     */
-    function acceptDeposit(uint256 _txnId, string calldata _phoneNumber) public
-      awaitAgent(_txnId) 
-      depositsOnly(_txnId)
-      nonClientOnly(_txnId)
-      sufficientBalance(_txnId)
-      whenNotPaused
-      payable {
-        
-        Transaction storage _txn = transactions[_txnId];
-        _txn.agentAccount = msg.sender;
-        _txn.status = Status.PAIRED;
-        _txn.agentPhoneNumber = _phoneNumber;
-        _txn.timestamp = block.timestamp;
-        
-        require(
-          ERC20(cusdTokenAddress).transferFrom(
-            msg.sender,
-            address(this), 
-            _txn.totalAmount
-          ),
-          "You don't have enough amount to accept this request."
-        );
-        
-        emit RequestAccepted(_txn);
-    }
-
-   /**
-     * @dev Agent accepts to fulfill the withdraw request
-     * The transaction is paired to the agent 
-     * @param _txnId The transaction id
-     * @param _phoneNumber the agent's phone number
-     */
-    function acceptWithdrawal(uint256 _txnId, string calldata _phoneNumber) public 
-      awaitAgent(_txnId) 
-      withdrawalsOnly(_txnId) 
-      nonClientOnly(_txnId) 
-      sufficientBalance(_txnId) 
-      whenNotPaused
-      payable {
-         
-        Transaction storage _txn = transactions[_txnId];
-        _txn.agentAccount = msg.sender;
-        _txn.status = Status.PAIRED;
-        _txn.agentPhoneNumber = _phoneNumber;
-        _txn.timestamp = block.timestamp;
-
-        require(
-        ERC20(cusdTokenAddress).transferFrom(
-            msg.sender,
-            address(this), 
-            _txn.totalAmount
-        ),
-        "You don't have enough amount to accept this request."
-        );
-        
-        emit RequestAccepted(_txn);
-    }
-
-    /**
-     * @dev Client confirms payment sent to the agent
-     * @param _txnId The transaction id
-     */
-    function clientConfirmPayment(uint256 _txnId) public
-     awaitConfirmation(_txnId)
-     clientOnly(_txnId) 
-     whenNotPaused {
-        
-        Transaction storage _txn = transactions[_txnId];
-        
-        require(!_txn.clientApproved, "Client already confirmed payment");
-        _txn.clientApproved = true;
-        _txn.timestamp = block.timestamp;
-        
-        emit ClientConfirmed(_txn);
-        
-        if (_txn.agentApproved) {
-            _txn.status = Status.CONFIRMED;
-            emit ConfirmationCompleted(_txn);
-            completeTransaction(_txnId);
-        }
-    }
-
-    /**
-     * @dev Agent comnfirms payment has been received
-     * @param _txnId The transaction id
-     */
-    function agentConfirmPayment(uint256 _txnId) public 
-        awaitConfirmation(_txnId)
-        agentOnly(_txnId) 
-        whenNotPaused {
-        
-        Transaction storage _txn = transactions[_txnId];
-        
-        require(!_txn.agentApproved, "Agent already confirmed payment");
-        _txn.agentApproved = true;
-        _txn.timestamp = block.timestamp;
-        
-        emit AgentConfirmed(_txn);
-        
-        if (_txn.clientApproved) {
-            _txn.status = Status.CONFIRMED;
-            emit ConfirmationCompleted(_txn);
-            completeTransaction(_txnId);
-        }
-    }
-
-    /**
-     * @dev Complete the transaction
-     * Transfer value to respective addresses
-     * @param _txnId The transaction id
-     **/ 
-    function completeTransaction(uint256 _txnId) public whenNotPaused {
-        Transaction storage _txn = transactions[_txnId];
-        require(_txn.clientAccount == msg.sender || _txn.agentAccount == msg.sender,
-            "Only involved accounts can complete the transaction");
-        require(_txn.status == Status.CONFIRMED, "Transaction not confirmed by both parties");
-        
-        if (_txn.txType == TransactionType.DEPOSIT) {
-            ERC20(cusdTokenAddress).transfer(
-                _txn.clientAccount,
-                _txn.netAmount);
-        } else {
-            require(ERC20(cusdTokenAddress).transfer(
-               _txn.agentAccount, 
-               _txn.netAmount),
-              "Transaction failed.");
-        }
-
-        /* Agent's commission fee */
-        require(ERC20(cusdTokenAddress).transfer(
-                _txn.agentAccount,
-                _txn.agentFee),
-              "Agent fee transfer failed.");
-        
-        /* Treasury commission fee */
-        require(ERC20(cusdTokenAddress).transfer(
-                treasuryAddress,
-                _txn.treasuryFee),
-              "Transaction fee transfer failed.");
-
-
-        /* Sum up agent fee earned */
-        Earning storage _earning = earnings[_txn.agentAccount];
-        _earning.totalEarned += _txn.agentFee;
-        _earning.timestamp = _txn.timestamp;
-
-        completedTransactions++;
-        _txn.status = Status.COMPLETED;
-        
-        emit TransactionCompleted(_txn);
-    }
-
-    /**
-      * Get the next transaction request from transactions list.
-      * @param _txnId the transaction id
-      * @return Transaction
-      */
-    function getNextUnpairedTransaction(uint256 _txnId) 
-      public view returns (Transaction memory) {
-      Transaction storage _txn;
-      uint256 transactionId = _txnId;
-      
-      /* limit transaction index */
-      if (_txnId > nextTransactionId) {
-         transactionId = nextTransactionId;
-      }
-
-      /* Traverse through transactions by index */
-      for (int index = int(transactionId); index >= 0; index--) {
-         _txn = transactions[uint(index)];
-
-         if (_txn.clientAccount != address(0) && _txn.agentAccount == address(0)) {
-               return _txn;
-         }
-      }
-
-      _txn = transactions[nextTransactionId];
-
-      return _txn;
-    }
-
-
-
-
-
-
-    //TODO: get transactions array list - or get by type
-
-
-
-
-
-
-    /**
-      * @dev Get transactions by Id
-      * @param _txnId Transaction Id
-      * @return Transaction.
-      */
-    function getTransactionByIndex(uint256 _txnId) public view returns (Transaction memory) {
-        Transaction memory _txn = transactions[_txnId];
-        return _txn;
-    }
-
-   /**
-    * Amount must be greater than zero
-    * @param _amount The amount
-    */
-    modifier amountGreaterThanZero(uint256 _amount) {
-      require(_amount > 0, "Amount must be greater than zero");
-      _;
-    }
-    
-    /**
-     * Only agent can execute
-     * @param _txnId Transaction id
-     */
-    modifier agentOnly(uint256 _txnId) {
-        Transaction storage _txn = transactions[_txnId];
-        require(msg.sender == _txn.agentAccount, "Only agent can execute function");
-        _;
-    }
-    
-    /**
-     * Deposit transactions only.
-     */
-    modifier depositsOnly(uint256 _txnId) {
-         Transaction storage _txn = transactions[_txnId];
-        require(_txn.txType == TransactionType.DEPOSIT, 
-            "Deposit only");
-        _;
-    }
-    
-    /**
-     * Withdrawal transactions only.
-     * @param _txnId Transaction Id.
-     */
-    modifier withdrawalsOnly(uint256 _txnId) {
-        Transaction storage _txn = transactions[_txnId];
-        require(_txn.txType == TransactionType.WITHDRAW,
-        "Withdrawal only");
-        _;
-    }
-    
-    /**
-     * Only allow client to execute
-     * @param _txnId The transaction id
-     */
-    modifier clientOnly(uint256 _txnId) {
-        Transaction storage _txn = transactions[_txnId];
-        require(msg.sender == _txn.clientAccount, "Only client can execute function");
-        _;
-    }
-
-    /**
-     * Prevents execution if sender is client
-     * @param _txnId The transaction id
-     */
-    modifier nonClientOnly(uint256 _txnId) {
-        Transaction storage _txn = transactions[_txnId];
-        require(msg.sender != _txn.clientAccount, "client can not execute function");
-        _;
-    }
-    
-    /**
-     * Transaction must be paired to an agent.
-     * @param _txnId The transaction id
-     */
-    modifier awaitConfirmation(uint256 _txnId) {
-        Transaction storage _txn = transactions[_txnId];
-        require(_txn.status == Status.PAIRED, "Transaction is not accepted by agent.");
-        _;
-    }
-    
-    /**
-     * Transaction can only be paired once.
-     * @param _txnId The transaction id
-     */
-    modifier awaitAgent(uint256 _txnId) {
-        Transaction storage _txn = transactions[_txnId];
-        require(_txn.status == Status.REQUEST, "Already accepted by agent");
-        _;
-    }
-    
-    /**
-     * Balance must be greater than total amount
-     * @param _txnId The transaction id
-     */
-    modifier sufficientBalance(uint256 _txnId) {
-        Transaction storage _txn = transactions[_txnId];
-        require(ERC20(cusdTokenAddress).balanceOf(address(msg.sender)) > _txn.totalAmount,
-            "Insufficient balance");
-        _;
-    }
-
-   /**
-    * @dev Send amount
-    * @param _recipient Recipient address
-    * @param _amount Amount to transfer
-    * @param _currencyCode Fiat currency code
-    * @param _conversionRate Fiat conversion rate
-    */
-   function send( 
-      address _recipient, 
-      uint256 _amount,
-      string calldata _currencyCode,
-      string calldata _conversionRate, 
-      string memory _paymentMethod) public payable whenNotPaused amountGreaterThanZero(_amount) {
-      require(_recipient != owner());
-      require(_recipient != address(0), "Cannot use zero address");
-      require(ERC20(cusdTokenAddress).balanceOf(address(msg.sender)) > _amount,
-            "Insufficient balance");
+  * @dev Initiate a deposit transaction
+  * @param _amount Transaction amount
+  * @param _currencyCode The fiat currency code
+  * @param _conversionRate The current fiat conversion rate 
+  **/
+  function initiateDeposit(uint256 _amount,
+  string calldata _currencyCode,
+  string calldata _conversionRate,  
+  string memory _paymentMethod) public amountGreaterThanZero(_amount) whenNotPaused {
 
       Transaction storage _txn = initTxn(
-         TransactionType.TRANSFER, 
-         _amount, _currencyCode, 
-         _conversionRate, 
-         _paymentMethod
+        TransactionType.DEPOSIT, 
+        _amount, 
+        _currencyCode, 
+        _conversionRate, 
+        _paymentMethod
       );
+      
+      emit TransactionInitiated(_txn.id, msg.sender);
+  }
 
+  /**
+  * @dev Initiate a withdrawal transaction
+  * @param _amount Transaction amount
+  * @param _currencyCode The fiat currency code
+  * @param _conversionRate The current fiat conversion rate
+  **/
+  function initiateWithdrawal(uint256 _amount,
+  string calldata _currencyCode,
+  string calldata _conversionRate,  
+  string memory _paymentMethod) public amountGreaterThanZero(_amount) whenNotPaused {
+
+      Transaction storage _txn = initTxn(
+        TransactionType.WITHDRAW, 
+        _amount, 
+        _currencyCode, 
+        _conversionRate, 
+        _paymentMethod
+      );
+      
+      emit TransactionInitiated(_txn.id, msg.sender);
+  }
+
+  /**
+  * @dev Agent accepts to fulfill the deposit request 
+  * @param _txnId The transaction id
+  * @param _phoneNumber the agent's phone number
+  */
+  function acceptDeposit(uint256 _txnId, string calldata _phoneNumber) public
+    awaitAgent(_txnId) 
+    depositsOnly(_txnId)
+    nonClientOnly(_txnId)
+    sufficientBalance(_txnId)
+    whenNotPaused
+    payable {
+      
+      Transaction storage _txn = transactions[_txnId];
       _txn.agentAccount = msg.sender;
-      _txn.clientAccount = _recipient;
+      _txn.status = Status.PAIRED;
+      _txn.agentPhoneNumber = _phoneNumber;
+      _txn.timestamp = block.timestamp;
+      
+      require(
+        ERC20(cusdTokenAddress).transferFrom(
+          msg.sender,
+          address(this), 
+          _txn.totalAmount
+        ),
+        "You don't have enough amount to accept this request."
+      );
+      
+      emit RequestAccepted(_txn);
+  }
+
+  /**
+  * @dev Agent accepts to fulfill the withdraw request
+  * The transaction is paired to the agent 
+  * @param _txnId The transaction id
+  * @param _phoneNumber the agent's phone number
+  */
+  function acceptWithdrawal(uint256 _txnId, string calldata _phoneNumber) public 
+    awaitAgent(_txnId) 
+    withdrawalsOnly(_txnId) 
+    nonClientOnly(_txnId) 
+    sufficientBalance(_txnId) 
+    whenNotPaused
+    payable {
+        
+      Transaction storage _txn = transactions[_txnId];
+      _txn.agentAccount = msg.sender;
+      _txn.status = Status.PAIRED;
+      _txn.agentPhoneNumber = _phoneNumber;
+      _txn.timestamp = block.timestamp;
 
       require(
-          ERC20(cusdTokenAddress).transferFrom(
-            msg.sender,
-            _recipient, 
-            _amount
-          ),
-          "Insufficient balance"
-        );
+      ERC20(cusdTokenAddress).transferFrom(
+          msg.sender,
+          address(this), 
+          _txn.totalAmount
+      ),
+      "You don't have enough amount to accept this request."
+      );
+      
+      emit RequestAccepted(_txn);
+  }
 
-        _txn.status = Status.COMPLETED;
-        
-      emit Transfer(msg.sender, _recipient, _amount);
-   }
+  /**
+    * @dev Client confirms payment sent to the agent
+    * @param _txnId The transaction id
+    */
+  function clientConfirmPayment(uint256 _txnId) public
+    awaitConfirmation(_txnId)
+    clientOnly(_txnId) 
+    whenNotPaused {
+      
+      Transaction storage _txn = transactions[_txnId];
+      
+      require(!_txn.clientApproved, "Client already confirmed payment");
+      _txn.clientApproved = true;
+      _txn.timestamp = block.timestamp;
+      
+      emit ClientConfirmed(_txn);
+      
+      if (_txn.agentApproved) {
+          _txn.status = Status.CONFIRMED;
+          emit ConfirmationCompleted(_txn);
+          completeTransaction(_txnId);
+      }
+  }
+
+  /**
+    * @dev Agent comnfirms payment has been received
+    * @param _txnId The transaction id
+    */
+  function agentConfirmPayment(uint256 _txnId) public 
+      awaitConfirmation(_txnId)
+      agentOnly(_txnId) 
+      whenNotPaused {
+      
+      Transaction storage _txn = transactions[_txnId];
+      
+      require(!_txn.agentApproved, "Agent already confirmed payment");
+      _txn.agentApproved = true;
+      _txn.timestamp = block.timestamp;
+      
+      emit AgentConfirmed(_txn);
+      
+      if (_txn.clientApproved) {
+          _txn.status = Status.CONFIRMED;
+          emit ConfirmationCompleted(_txn);
+          completeTransaction(_txnId);
+      }
+  }
+
+  /**
+    * @dev Complete the transaction
+    * Transfer value to respective addresses
+    * @param _txnId The transaction id
+    **/ 
+  function completeTransaction(uint256 _txnId) public whenNotPaused {
+      Transaction storage _txn = transactions[_txnId];
+      require(_txn.clientAccount == msg.sender || _txn.agentAccount == msg.sender,
+          "Only involved accounts can complete the transaction");
+      require(_txn.status == Status.CONFIRMED, "Transaction not confirmed by both parties");
+      
+      if (_txn.txType == TransactionType.DEPOSIT) {
+          ERC20(cusdTokenAddress).transfer(
+              _txn.clientAccount,
+              _txn.netAmount);
+      } else {
+          require(ERC20(cusdTokenAddress).transfer(
+              _txn.agentAccount, 
+              _txn.netAmount),
+            "Transaction failed.");
+      }
+
+      /* Agent's commission fee */
+      require(ERC20(cusdTokenAddress).transfer(
+              _txn.agentAccount,
+              _txn.agentFee),
+            "Agent fee transfer failed.");
+      
+      /* Treasury commission fee */
+      require(ERC20(cusdTokenAddress).transfer(
+              treasuryAddress,
+              _txn.treasuryFee),
+            "Transaction fee transfer failed.");
+
+
+      /* Sum up agent fee earned */
+      Earning storage _earning = earnings[_txn.agentAccount];
+      _earning.totalEarned += _txn.agentFee;
+      _earning.timestamp = _txn.timestamp;
+
+      completedTransactions++;
+      _txn.status = Status.COMPLETED;
+      
+      emit TransactionCompleted(_txn);
+  }
+
+
+  /**
+    * @dev Cancel a request request
+    * @param _txnId The transaction id
+    * @param _reason the agent's phone number
+    */
+  function cancelTransaction(uint256 _txnId, string calldata _reason) public
+    clientOnly(_txnId)
+    onRequestOnly(_txnId)
+    whenNotPaused
+    payable {
+      
+      Transaction storage _txn = transactions[_txnId];
+      _txn.status = Status.CANCELLED;
+      _txn.timestamp = block.timestamp;
+      
+      emit TransactionCancelled(_txn, _reason);
+  }
+
+  /**
+    * Get the next transaction request from transactions list.
+    * @param _txnId the transaction id
+    * @return Transaction
+    */
+  function getNextUnpairedTransaction(uint256 _txnId) 
+    public view returns (Transaction memory) {
+    Transaction storage _txn;
+    uint256 transactionId = _txnId;
+    
+    /* limit transaction index */
+    if (_txnId > nextTransactionId) {
+        transactionId = nextTransactionId;
+    }
+
+    /* Traverse through transactions by index */
+    for (int index = int(transactionId); index >= 0; index--) {
+        _txn = transactions[uint(index)];
+
+        if (_txn.clientAccount != address(0) && _txn.agentAccount == address(0)) {
+              return _txn;
+        }
+    }
+
+    _txn = transactions[nextTransactionId];
+
+    return _txn;
+  }
+
+
+
+
+
+
+  //TODO: get transactions array list - or get by type
+
+
+
+
+
+
+  /**
+    * @dev Get transactions by Id
+    * @param _txnId Transaction Id
+    * @return Transaction.
+    */
+  function getTransactionByIndex(uint256 _txnId) public view returns (Transaction memory) {
+      Transaction memory _txn = transactions[_txnId];
+      return _txn;
+  }
+
+  /**
+  * Amount must be greater than zero
+  * @param _amount The amount
+  */
+  modifier amountGreaterThanZero(uint256 _amount) {
+    require(_amount > 0, "Amount must be greater than zero");
+    _;
+  }
+  
+  /**
+    * Only agent can execute
+    * @param _txnId Transaction id
+    */
+  modifier agentOnly(uint256 _txnId) {
+      Transaction storage _txn = transactions[_txnId];
+      require(msg.sender == _txn.agentAccount, "Only agent can execute function");
+      _;
+  }
+  
+  /**
+    * Deposit transactions only.
+    */
+  modifier depositsOnly(uint256 _txnId) {
+        Transaction storage _txn = transactions[_txnId];
+      require(_txn.txType == TransactionType.DEPOSIT, 
+          "Deposit only");
+      _;
+  }
+  
+  /**
+    * Withdrawal transactions only.
+    * @param _txnId Transaction Id.
+    */
+  modifier withdrawalsOnly(uint256 _txnId) {
+      Transaction storage _txn = transactions[_txnId];
+      require(_txn.txType == TransactionType.WITHDRAW,
+      "Withdrawal only");
+      _;
+  }
+    
+  /**
+    * Only allow client to execute
+    * @param _txnId The transaction id
+    */
+  modifier clientOnly(uint256 _txnId) {
+      Transaction storage _txn = transactions[_txnId];
+      require(msg.sender == _txn.clientAccount, "Only client can execute function");
+      _;
+  }
+
+  /**
+    * Prevents execution if sender is client
+    * @param _txnId The transaction id
+    */
+  modifier nonClientOnly(uint256 _txnId) {
+      Transaction storage _txn = transactions[_txnId];
+      require(msg.sender != _txn.clientAccount, "client can not execute function");
+      _;
+  }
+  
+  /**
+    * Transaction must be paired to an agent.
+    * @param _txnId The transaction id
+    */
+  modifier awaitConfirmation(uint256 _txnId) {
+      Transaction storage _txn = transactions[_txnId];
+      require(_txn.status == Status.PAIRED, "Transaction is not accepted by agent.");
+      _;
+  }
+    
+  /**
+    * Transaction can only be paired once.
+    * @param _txnId The transaction id
+    */
+  modifier awaitAgent(uint256 _txnId) {
+      Transaction storage _txn = transactions[_txnId];
+      require(_txn.status == Status.REQUEST, "Already accepted by agent");
+      _;
+  }
+  
+  /**
+    * Balance must be greater than total amount
+    * @param _txnId The transaction id
+    */
+  modifier sufficientBalance(uint256 _txnId) {
+      Transaction storage _txn = transactions[_txnId];
+      require(ERC20(cusdTokenAddress).balanceOf(address(msg.sender)) > _txn.totalAmount,
+          "Insufficient balance");
+      _;
+  }
+
+  /**
+    * Prevent execution when the Status is not request
+    * @param _txnId The transaction id
+    */
+  modifier onRequestOnly(uint256 _txnId) {
+      Transaction storage _txn = transactions[_txnId];
+      require(_txn.status == Status.REQUEST, "Transaction should be in the REQUEST status");
+      _;
+  }
+
+  /**
+  * @dev Send amount
+  * @param _recipient Recipient address
+  * @param _amount Amount to transfer
+  * @param _currencyCode Fiat currency code
+  * @param _conversionRate Fiat conversion rate
+  */
+  function send( 
+    address _recipient, 
+    uint256 _amount,
+    string calldata _currencyCode,
+    string calldata _conversionRate, 
+    string memory _paymentMethod) public payable whenNotPaused amountGreaterThanZero(_amount) {
+    require(_recipient != owner());
+    require(_recipient != address(0), "Cannot use zero address");
+    require(ERC20(cusdTokenAddress).balanceOf(address(msg.sender)) > _amount,
+          "Insufficient balance");
+
+    Transaction storage _txn = initTxn(
+        TransactionType.TRANSFER, 
+        _amount, _currencyCode, 
+        _conversionRate, 
+        _paymentMethod
+    );
+
+    _txn.agentAccount = msg.sender;
+    _txn.clientAccount = _recipient;
+
+    require(
+        ERC20(cusdTokenAddress).transferFrom(
+          msg.sender,
+          _recipient, 
+          _amount
+        ),
+        "Insufficient balance"
+      );
+
+      _txn.status = Status.COMPLETED;
+      
+    emit Transfer(msg.sender, _recipient, _amount);
+  }
 }
