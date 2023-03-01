@@ -2,7 +2,7 @@
 pragma solidity ^0.8.17;
 
  import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
- //import "hardhat/console.sol";
+ import "hardhat/console.sol";
  import './SargoOwnable.sol';
  import './SargoPausable.sol';
 
@@ -139,7 +139,7 @@ contract SargoEscrow is SargoOwnable, SargoPausable {
       _txn.agentApproved = false;
       _txn.clientApproved = false;
       _txn.paymentMethod = _paymentMethod;
-      //_txn.timestamp = 
+      _txn.timestamp = block.timestamp;
 
       nextTransactionId++;
 
@@ -207,6 +207,7 @@ contract SargoEscrow is SargoOwnable, SargoPausable {
         _txn.agentAccount = msg.sender;
         _txn.status = Status.PAIRED;
         _txn.agentPhoneNumber = _phoneNumber;
+        _txn.timestamp = block.timestamp;
         
         require(
           ERC20(cusdTokenAddress).transferFrom(
@@ -238,6 +239,7 @@ contract SargoEscrow is SargoOwnable, SargoPausable {
         _txn.agentAccount = msg.sender;
         _txn.status = Status.PAIRED;
         _txn.agentPhoneNumber = _phoneNumber;
+        _txn.timestamp = block.timestamp;
 
         require(
         ERC20(cusdTokenAddress).transferFrom(
@@ -264,6 +266,7 @@ contract SargoEscrow is SargoOwnable, SargoPausable {
         
         require(!_txn.clientApproved, "Client already confirmed payment");
         _txn.clientApproved = true;
+        _txn.timestamp = block.timestamp;
         
         emit ClientConfirmed(_txn);
         
@@ -287,6 +290,7 @@ contract SargoEscrow is SargoOwnable, SargoPausable {
         
         require(!_txn.agentApproved, "Agent already confirmed payment");
         _txn.agentApproved = true;
+        _txn.timestamp = block.timestamp;
         
         emit AgentConfirmed(_txn);
         
@@ -335,7 +339,7 @@ contract SargoEscrow is SargoOwnable, SargoPausable {
         /* Sum up agent fee earned */
         Earning storage _earning = earnings[_txn.agentAccount];
         _earning.totalEarned += _txn.agentFee;
-        //_earning.timestamp = 
+        _earning.timestamp = _txn.timestamp;
 
         completedTransactions++;
         _txn.status = Status.COMPLETED;
