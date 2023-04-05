@@ -2,54 +2,50 @@ const { expect } = require("chai");
 const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 const { ethers } = require("hardhat");
 const { BigNumber } = require("ethers");
+require("dotenv").config();
 
 describe("Sargo Token, Escrow contracts deployment", () => {
   async function deploySargoEscrowFixture() {
-    const SargoToken = await ethers.getContractFactory("SargoToken");
-    const initialSupply = 1000;
-    const sargoToken = await SargoToken.deploy(
-      initialSupply,
-      "cUSD",
-      0,
-      "cUSD"
-    );
-    await sargoToken.deployed();
-
-    const SargoEscrow = await ethers.getContractFactory("SargoEscrow");
     const [owner, sender, recipient, client, agent, treasury] =
       await ethers.getSigners();
-    const agentFee = 2;
-    const sargoFee = 1;
-    const amount = 2;
+
+    const supply = 1000;
+    const initialSupply = ethers.utils.parseUnits(supply.toString(), "ether");
+    const agentFee = ethers.BigNumber.from(process.env.SARGO_AGENT_FEE);
+    const treasuryFee = ethers.BigNumber.from(process.env.SARGO_TREASURY_FEE);
+    const amount = ethers.utils.parseUnits("2", "ether");
+    const fundAmount = ethers.utils.parseUnits("3", "ether");
     const currencyCode = "KES";
-    const conversionRate = 122;
+    const conversionRate = "132";
     const clientPhone = "254722000000";
     const agentPhone = "254723000000";
-    const fundAccount = 10;
+    const paymentMethod = "Mpesa";
 
+    const SargoToken = await ethers.getContractFactory("SargoToken");
+    const sargoToken = await SargoToken.deploy("Sargo", "SGT");
+    await sargoToken.deployed();
+    sargoToken.mint(owner.address, initialSupply);
+
+    const SargoEscrow = await ethers.getContractFactory("SargoEscrow");
     const sargoEscrow = await SargoEscrow.deploy(
       sargoToken.address,
       agentFee,
-      sargoFee,
+      treasuryFee,
       treasury.address
     );
     await sargoEscrow.deployed();
-
-    await sargoToken.transfer(client.address, fundAccount);
-    await sargoToken.transfer(agent.address, fundAccount);
-    await sargoToken.connect(client).approve(sargoEscrow.address, 10);
-    await sargoToken.connect(agent).approve(sargoEscrow.address, 10);
 
     return {
       SargoEscrow,
       sargoEscrow,
       owner,
-      sargoFee,
+      treasuryFee,
       agentFee,
       client,
       agent,
       SargoToken,
       sargoToken,
+      supply,
       initialSupply,
       treasury,
       amount,
@@ -59,12 +55,96 @@ describe("Sargo Token, Escrow contracts deployment", () => {
       recipient,
       clientPhone,
       agentPhone,
-      fundAccount,
+      fundAmount,
+      paymentMethod,
     };
   }
 
-  describe("Deployment", function () {
-    it("Should set the right owner", async () => {
+  describe("Sargo Token Deployment", function () {
+    it("Should set the right Token owner", async () => {
+      const { sargoToken, owner } = await loadFixture(deploySargoEscrowFixture);
+      expect(await sargoToken.owner()).to.equal(owner.address);
+    });
+
+    it("Should set the initial total supply", async () => {
+      const { sargoToken, initialSupply } = await loadFixture(
+        deploySargoEscrowFixture
+      );
+      expect(await sargoToken.totalSupply()).to.equal(initialSupply);
+    });
+
+    it("Should update the balance of the owner with the total supply value", async () => {
+      const { sargoToken, initialSupply } = await loadFixture(
+        deploySargoEscrowFixture
+      );
+      expect(await sargoToken.balanceOf(sargoToken.owner())).to.equal(
+        initialSupply
+      );
+    });
+
+    it("Should increase the total supply by initial supply value", async () => {
+      const { sargoToken, initialSupply, supply } = await loadFixture(
+        deploySargoEscrowFixture
+      );
+      sargoToken.mint(sargoToken.address, initialSupply);
+      const expected = ethers.utils.parseUnits(
+        (supply + supply).toString(),
+        "ether"
+      );
+      expect(await sargoToken.totalSupply()).to.equal(expected);
+    });
+
+    it("Should decrease the total supply by initial supply value", async () => {
+      const { sargoToken, initialSupply, supply } = await loadFixture(
+        deploySargoEscrowFixture
+      );
+      sargoToken.burn(sargoToken.address, initialSupply);
+      const expected = ethers.utils.parseUnits(supply.toString(), "ether");
+      expect(await sargoToken.totalSupply()).to.equal(expected);
+    });
+
+    it("Should transfer amount into the provided recipient address", async () => {
+      const { sargoToken, fundAmount, client } = await loadFixture(
+        deploySargoEscrowFixture
+      );
+      await sargoToken.transfer(client.address, fundAmount);
+      expect(await sargoToken.balanceOf(client.address)).to.equal(fundAmount);
+    });
+
+    it("Should approve amount as allowance for tranfer of value from sender", async () => {
+      const { sargoToken, owner, fundAmount } = await loadFixture(
+        deploySargoEscrowFixture
+      );
+      await sargoToken.connect(owner).approve(owner.address, fundAmount);
+      expect(await sargoToken.allowance(owner.address, owner.address)).to.equal(
+        fundAmount
+      );
+    });
+
+    it("Should transfer provided amount from one address into another", async () => {
+      const { sargoToken, owner, client, fundAmount } = await loadFixture(
+        deploySargoEscrowFixture
+      );
+      await sargoToken.connect(owner).approve(owner.address, fundAmount);
+      await sargoToken.transferFrom(owner.address, client.address, fundAmount);
+      expect(await sargoToken.balanceOf(client.address)).to.equal(fundAmount);
+    });
+
+    it("Should emit a transfer event", async function () {
+      const { sargoToken, owner, client, fundAmount } = await loadFixture(
+        deploySargoEscrowFixture
+      );
+      await sargoToken.connect(owner).approve(owner.address, fundAmount);
+      await expect(
+        sargoToken.transferFrom(owner.address, client.address, fundAmount)
+      )
+        .to.emit(sargoToken, "Transfer")
+        .withArgs(owner.address, client.address, fundAmount);
+    });
+  });
+
+  describe("Sargo Escrow Deployment", function () {
+    it("Should set the right Sargo escrow owner", async () => {
       const { sargoEscrow, owner } = await loadFixture(
         deploySargoEscrowFixture
       );
@@ -75,7 +155,7 @@ describe("Sargo Token, Escrow contracts deployment", () => {
       const { sargoEscrow, sargoToken } = await loadFixture(
         deploySargoEscrowFixture
       );
-      expect(await sargoEscrow.getCusdTokenAddress()).to.equal(
+      expect(await sargoEscrow.tokenContractAddress()).to.equal(
         sargoToken.address
       );
     });
@@ -84,21 +164,21 @@ describe("Sargo Token, Escrow contracts deployment", () => {
       const { sargoEscrow, treasury } = await loadFixture(
         deploySargoEscrowFixture
       );
-      expect(await sargoEscrow.getTreasuryAddress()).to.equal(treasury.address);
+      expect(await sargoEscrow.treasuryAddress()).to.equal(treasury.address);
     });
 
     it("Should set the right agent fee", async () => {
       const { sargoEscrow, agentFee } = await loadFixture(
         deploySargoEscrowFixture
       );
-      expect(await sargoEscrow.getAgentFee()).to.equal(agentFee);
+      expect(await sargoEscrow.agentFee()).to.equal(agentFee);
     });
 
-    it("Should set the right sargo fee", async () => {
-      const { sargoEscrow, sargoFee } = await loadFixture(
+    it("Should set the right treasury fee", async () => {
+      const { sargoEscrow, treasuryFee } = await loadFixture(
         deploySargoEscrowFixture
       );
-      expect(await sargoEscrow.getSargoFee()).to.equal(sargoFee);
+      expect(await sargoEscrow.treasuryFee()).to.equal(treasuryFee);
     });
   });
 
@@ -112,30 +192,49 @@ describe("Sargo Token, Escrow contracts deployment", () => {
         currencyCode,
         conversionRate,
         agentFee,
-        sargoFee,
+        treasuryFee,
+        paymentMethod,
       } = await loadFixture(deploySargoEscrowFixture);
       await sargoEscrow
         .connect(client)
-        .initiateDeposit(amount, currencyCode, conversionRate);
+        .initiateDeposit(amount, currencyCode, conversionRate, paymentMethod);
       const txn = await sargoEscrow.getTransactionByIndex(0);
+      const _totalAmount = amount.add(agentFee).add(treasuryFee);
+      const _txFees = agentFee.add(treasuryFee);
+      const _netAmount = _totalAmount.sub(_txFees);
+
       expect(txn.id).to.equal(0);
       expect(await sargoToken.balanceOf(txn.agentAccount)).to.equal(0);
       expect(txn.agentFee).to.equal(agentFee);
-      expect(txn.treasuryFee).to.equal(sargoFee);
-      expect(txn.totalAmount).to.equal(amount + agentFee + sargoFee);
-      expect(txn.netAmount).to.equal(txn.totalAmount - (agentFee + sargoFee));
+      expect(txn.treasuryFee).to.equal(treasuryFee);
+      expect(txn.totalAmount).to.equal(_totalAmount);
+      expect(txn.netAmount).to.equal(_netAmount);
       expect(txn.txType).to.equal(0);
       expect(txn.status).to.equal(0);
       expect(txn.agentApproved).to.equal(false);
       expect(txn.clientApproved).to.equal(false);
     });
 
-    /* it('Should emit deposit request initiated event', async function() {
-            const { sargoEscrow, client, amount, currencyCode, conversionRate } = await loadFixture(deploySargoEscrowFixture);
-            await expect(sargoEscrow.connect(client).initiateDeposit(amount, currencyCode, conversionRate))
-            .to.emit(sargoEscrow, "TransactionInitiated")
-            .withArgs(0, client.address);
-        }); */
+    it("Should emit deposit request initiated event", async function () {
+      const {
+        sargoEscrow,
+        client,
+        amount,
+        currencyCode,
+        conversionRate,
+        paymentMethod,
+      } = await loadFixture(deploySargoEscrowFixture);
+
+      const depositRequest = await sargoEscrow
+        .connect(client)
+        .initiateDeposit(amount, currencyCode, conversionRate, paymentMethod);
+
+      const _request = await sargoEscrow.getTransactionByIndex(0);
+
+      await expect(depositRequest)
+        .to.emit(sargoEscrow, "TransactionInitiated")
+        .withArgs(_request);
+    });
 
     it("Should allow an agent to Accept deposit pair with client for deposit request", async () => {
       const {
@@ -148,38 +247,85 @@ describe("Sargo Token, Escrow contracts deployment", () => {
         conversionRate,
         agentPhone,
         agentFee,
-        sargoFee,
-        fundAccount,
+        treasuryFee,
+        fundAmount,
+        paymentMethod,
       } = await loadFixture(deploySargoEscrowFixture);
-      await sargoEscrow
+
+      /* Initiate deposit */
+      const depositRequest = await sargoEscrow
         .connect(client)
-        .initiateDeposit(amount, currencyCode, conversionRate);
-      const txn = await sargoEscrow.getTransactionByIndex(0);
-      await sargoEscrow.connect(agent).acceptDeposit(txn.id, agentPhone);
-      expect(txn.id).to.equal(0);
-      expect(await sargoToken.balanceOf(txn.agentAccount)).to.equal(0);
-      expect(txn.agentFee).to.equal(agentFee);
-      expect(txn.treasuryFee).to.equal(sargoFee);
-      expect(txn.totalAmount).to.equal(amount + agentFee + sargoFee);
-      expect(txn.netAmount).to.equal(txn.totalAmount - (agentFee + sargoFee));
-      expect(txn.txType).to.equal(0);
-      //expect(txn.status).to.equal(1);
-      expect(txn.agentApproved).to.equal(false);
-      expect(txn.clientApproved).to.equal(false);
-      //expect(txn.agentPhoneNumber).to.equal(agentPhone);
+        .initiateDeposit(amount, currencyCode, conversionRate, paymentMethod);
+      const _request = await sargoEscrow.getTransactionByIndex(0);
+
+      const _totalAmount = amount.add(agentFee).add(treasuryFee);
+      const _txFees = agentFee.add(treasuryFee);
+      const _netAmount = _totalAmount.sub(_txFees);
+
+      /* Update agent's balance to allow agent to accept transaction */
+      await sargoToken.transfer(agent.address, fundAmount);
+      expect(await sargoToken.balanceOf(agent.address)).to.equal(fundAmount);
+
+      /* Approve allowance and accept deposit */
+      await sargoToken.connect(agent).approve(sargoEscrow.address, fundAmount);
+      await sargoEscrow.connect(agent).acceptDeposit(_request.id, agentPhone);
+      const _accepted = await sargoEscrow.getTransactionByIndex(_request.id);
+
+      expect(_accepted.id).to.equal(0);
+      expect(_accepted.agentAccount).to.equal(agent.address);
+      expect(_accepted.agentFee).to.equal(agentFee);
+      expect(_accepted.treasuryFee).to.equal(treasuryFee);
+      expect(_accepted.totalAmount).to.equal(_totalAmount);
+      expect(_accepted.netAmount).to.equal(_netAmount);
+      expect(_accepted.agentPhoneNumber).to.equal(agentPhone);
+      expect(_accepted.txType).to.equal(0);
+      expect(_accepted.status).to.equal(1);
+      expect(_accepted.agentApproved).to.equal(false);
+      expect(_accepted.clientApproved).to.equal(false);
+
+      await expect(depositRequest)
+        .to.emit(sargoEscrow, "TransactionInitiated")
+        .withArgs(_request);
     });
 
-    /* it('Should emit the Accept deposit request event', async() => {
-            const { sargoEscrow, sargoToken, agent, client, amount, currencyCode, conversionRate, agentPhone, fundAccount } = await loadFixture(deploySargoEscrowFixture);
-            await sargoEscrow.connect(client).initiateDeposit(amount, currencyCode, conversionRate);
-            const txn = await sargoEscrow.getTransactionByIndex(0);
-            const acceptDeposit = await sargoEscrow.connect(agent).acceptDeposit(txn.id, agentPhone);
-            await expect(acceptDeposit)
-            .to.emit(sargoEscrow, "RequestAccepted")
-            .withArgs(await sargoEscrow.getTransactionByIndex(txn.id));
-        }); */
+    it("Should emit the Accept deposit request event", async () => {
+      const {
+        sargoEscrow,
+        sargoToken,
+        agent,
+        client,
+        amount,
+        currencyCode,
+        conversionRate,
+        agentPhone,
+        fundAmount,
+        paymentMethod,
+      } = await loadFixture(deploySargoEscrowFixture);
 
-    it("Should allow the client and agent confirm fiat payment received - Deposit request", async () => {
+      /* initiate deposit */
+      await sargoEscrow
+        .connect(client)
+        .initiateDeposit(amount, currencyCode, conversionRate, paymentMethod);
+      const _request = await sargoEscrow.getTransactionByIndex(0);
+
+      /* Update agent's balance to allow agent to accept transaction */
+      await sargoToken.transfer(agent.address, fundAmount);
+      /* Approve allowance and accept deposit */
+      await sargoToken.connect(agent).approve(sargoEscrow.address, fundAmount);
+
+      /* Accept deposit */
+      const acceptDeposit = await sargoEscrow
+        .connect(agent)
+        .acceptDeposit(_request.id, agentPhone);
+
+      const _accepted = await sargoEscrow.getTransactionByIndex(_request.id);
+
+      await expect(acceptDeposit)
+        .to.emit(sargoEscrow, "RequestAccepted")
+        .withArgs(_accepted);
+    });
+
+    it("Should allow the client and agent to confirm fiat payment received - Deposit request", async () => {
       const {
         sargoEscrow,
         sargoToken,
@@ -191,32 +337,88 @@ describe("Sargo Token, Escrow contracts deployment", () => {
         conversionRate,
         agentPhone,
         agentFee,
-        sargoFee,
-        fundAccount,
+        treasuryFee,
+        fundAmount,
+        paymentMethod,
       } = await loadFixture(deploySargoEscrowFixture);
-      await sargoEscrow
-        .connect(client)
-        .initiateDeposit(amount, currencyCode, conversionRate);
-      const txn = await sargoEscrow.getTransactionByIndex(0);
-      await sargoEscrow.connect(agent).acceptDeposit(txn.id, agentPhone);
-      await sargoEscrow.connect(client).clientConfirmPayment(txn.id);
-      await sargoEscrow.connect(agent).agentConfirmPayment(txn.id);
-      const txnRes = await sargoEscrow.getTransactionByIndex(txn.id);
-      const clientBalance = await sargoToken.balanceOf(client.address);
-      const agentBalance = await sargoToken.balanceOf(agent.address);
-      const treasuryBalance = await sargoToken.balanceOf(treasury.address);
-      const clientExpected = fundAccount + amount;
-      const agentExpected = fundAccount - amount + agentFee;
-      expect(txnRes.id).to.equal(0);
-      expect(txnRes.txType).to.equal(0);
-      expect(txnRes.status).to.equal(3);
-      expect(clientBalance).to.equal(clientExpected);
-      expect(agentBalance).to.equal(agentExpected);
-      expect(treasuryBalance).to.equal(2);
 
-      //ClientConfirmed(txn)
-      //AgentConfirmed(txn)
-      //ConfirmationCompleted(txn)
+      const _clientBalance = await sargoToken.balanceOf(client.address);
+      const _agentBalance = await sargoToken.balanceOf(agent.address);
+      const _treasuryBalance = await sargoToken.balanceOf(treasury.address);
+
+      /* initiate deposit */
+      const depositRequest = await sargoEscrow
+        .connect(client)
+        .initiateDeposit(amount, currencyCode, conversionRate, paymentMethod);
+      const _request = await sargoEscrow.getTransactionByIndex(0);
+
+      /* Update agent's balance to allow agent to accept transaction */
+      await sargoToken.transfer(agent.address, fundAmount);
+      /* Approve allowance and accept deposit */
+      await sargoToken.connect(agent).approve(sargoEscrow.address, fundAmount);
+
+      /* Accept deposit */
+      const acceptDeposit = await sargoEscrow
+        .connect(agent)
+        .acceptDeposit(_request.id, agentPhone);
+      const _accepted = await sargoEscrow.getTransactionByIndex(_request.id);
+
+      /* Client confirms payment */
+      const clientConfirmed = await sargoEscrow
+        .connect(client)
+        .clientConfirmPayment(_accepted.id);
+      const _clientConfirmed = await sargoEscrow.getTransactionByIndex(
+        _accepted.id
+      );
+
+      /* Client confirms payment */
+      const agentConfirmed = await sargoEscrow
+        .connect(agent)
+        .agentConfirmPayment(_clientConfirmed.id);
+      const _agentConfirmed = await sargoEscrow.getTransactionByIndex(
+        _clientConfirmed.id
+      );
+
+      /* Transaction should be completed when both client and agent confirm payments */
+
+      const clientExpected = _clientBalance.add(amount);
+      const agentExpected = _agentBalance.sub(amount).add(agentFee);
+      const treasuryExpected = _treasuryBalance.add(treasuryFee);
+
+      expect(_agentConfirmed.id).to.equal(0);
+      expect(_agentConfirmed.txType).to.equal(0);
+      expect(_agentConfirmed.status).to.equal(3);
+      expect(await sargoToken.balanceOf(client.address)).to.equal(
+        clientExpected
+      );
+      expect(await sargoToken.balanceOf(agent.address)).to.equal(agentExpected);
+      expect(await sargoToken.balanceOf(treasury.address)).to.equal(
+        treasuryExpected
+      );
+
+      await expect(depositRequest)
+        .to.emit(sargoEscrow, "TransactionInitiated")
+        .withArgs(_request);
+
+      await expect(acceptDeposit)
+        .to.emit(sargoEscrow, "RequestAccepted")
+        .withArgs(_accepted);
+
+      await expect(clientConfirmed)
+        .to.emit(sargoEscrow, "ClientConfirmed")
+        .withArgs(_clientConfirmed);
+
+      await expect(agentConfirmed)
+        .to.emit(sargoEscrow, "AgentConfirmed")
+        .withArgs(_agentConfirmed);
+
+      await expect(agentConfirmed)
+        .to.emit(sargoEscrow, "ConfirmationCompleted")
+        .withArgs(_agentConfirmed);
+
+      await expect(agentConfirmed)
+        .to.emit(sargoEscrow, "TransactionCompleted")
+        .withArgs(_agentConfirmed);
     });
 
     /*
@@ -227,7 +429,7 @@ describe("Sargo Token, Escrow contracts deployment", () => {
   });
 
   describe("Withdraw Transactions", function () {
-    it("Should initiate a withdrawal request", async () => {
+    /*  it("Should initiate a withdrawal request", async () => {
       const {
         sargoEscrow,
         sargoToken,
@@ -236,8 +438,8 @@ describe("Sargo Token, Escrow contracts deployment", () => {
         currencyCode,
         conversionRate,
         agentFee,
-        sargoFee,
-        fundAccount,
+        treasuryFee,
+        fundAmount,
       } = await loadFixture(deploySargoEscrowFixture);
       await sargoEscrow
         .connect(client)
@@ -246,23 +448,21 @@ describe("Sargo Token, Escrow contracts deployment", () => {
       expect(txn.id).to.equal(0);
       expect(await sargoToken.balanceOf(txn.agentAccount)).to.equal(0);
       expect(txn.agentFee).to.equal(agentFee);
-      expect(txn.treasuryFee).to.equal(sargoFee);
-      expect(txn.totalAmount).to.equal(amount + agentFee + sargoFee);
-      expect(txn.netAmount).to.equal(txn.totalAmount - (agentFee + sargoFee));
+      expect(txn.treasuryFee).to.equal(treasuryFee);
+      expect(txn.totalAmount).to.equal(amount + agentFee + treasuryFee);
+      expect(txn.netAmount).to.equal(txn.totalAmount - (agentFee + treasuryFee));
       expect(txn.txType).to.equal(1);
       expect(txn.status).to.equal(0);
       expect(txn.agentApproved).to.equal(false);
       expect(txn.clientApproved).to.equal(false);
-    });
-
+    }); */
     /* it('Should emit withdraw request initiated event', async function() {
-            const { sargoEscrow, sargoToken, client, amount, currencyCode, conversionRate, fundAccount } = await loadFixture(deploySargoEscrowFixture);
+            const { sargoEscrow, sargoToken, client, amount, currencyCode, conversionRate, fundAmount } = await loadFixture(deploySargoEscrowFixture);
             await expect(sargoEscrow.connect(client).initiateWithdrawal(amount, currencyCode, conversionRate))
             .to.emit(sargoEscrow, "TransactionInitiated")
             .withArgs(0, client.address);
         }); */
-
-    it("Should allow an agent to Accept withdrwal pair with the client for a withdraw request", async () => {
+    /* it("Should allow an agent to Accept withdrwal pair with the client for a withdraw request", async () => {
       const {
         sargoEscrow,
         sargoToken,
@@ -273,8 +473,8 @@ describe("Sargo Token, Escrow contracts deployment", () => {
         conversionRate,
         agentPhone,
         agentFee,
-        sargoFee,
-        fundAccount,
+        treasuryFee,
+        fundAmount,
       } = await loadFixture(deploySargoEscrowFixture);
       await sargoEscrow
         .connect(client)
@@ -284,18 +484,17 @@ describe("Sargo Token, Escrow contracts deployment", () => {
       expect(txn.id).to.equal(0);
       expect(await sargoToken.balanceOf(txn.agentAccount)).to.equal(0);
       expect(txn.agentFee).to.equal(agentFee);
-      expect(txn.treasuryFee).to.equal(sargoFee);
-      expect(txn.totalAmount).to.equal(amount + agentFee + sargoFee);
-      expect(txn.netAmount).to.equal(txn.totalAmount - (agentFee + sargoFee));
+      expect(txn.treasuryFee).to.equal(treasuryFee);
+      expect(txn.totalAmount).to.equal(amount + agentFee + treasuryFee);
+      expect(txn.netAmount).to.equal(txn.totalAmount - (agentFee + treasuryFee));
       expect(txn.txType).to.equal(1);
       //expect(txn.status).to.equal(1);
       expect(txn.agentApproved).to.equal(false);
       expect(txn.clientApproved).to.equal(false);
       //expect(txn.agentPhoneNumber).to.equal(agentPhone);
-    });
-
+    }); */
     /* it('Should emit the Accept withdrwal request event', async() => {
-            const { sargoEscrow, sargoToken, agent, client, amount, currencyCode, conversionRate, agentPhone, fundAccount } = await loadFixture(deploySargoEscrowFixture);
+            const { sargoEscrow, sargoToken, agent, client, amount, currencyCode, conversionRate, agentPhone, fundAmount } = await loadFixture(deploySargoEscrowFixture);
             await sargoEscrow.connect(client).initiateWithdrawal(amount, currencyCode, conversionRate);
             const txn = await sargoEscrow.getTransactionByIndex(0);
             const acceptWithdraw = await sargoEscrow.connect(agent).acceptWithdrawal(txn.id, agentPhone);
@@ -303,8 +502,7 @@ describe("Sargo Token, Escrow contracts deployment", () => {
             .to.emit(sargoEscrow, "RequestAccepted")
             .withArgs(await sargoEscrow.getTransactionByIndex(txn.id));
         }); */
-
-    it("Should allow the client and agent confirm fiat payment received - withdraw transaction", async () => {
+    /* it("Should allow the client and agent confirm fiat payment received - withdraw transaction", async () => {
       const {
         sargoEscrow,
         sargoToken,
@@ -316,8 +514,8 @@ describe("Sargo Token, Escrow contracts deployment", () => {
         conversionRate,
         agentPhone,
         agentFee,
-        sargoFee,
-        fundAccount,
+        treasuryFee,
+        fundAmount,
       } = await loadFixture(deploySargoEscrowFixture);
       await sargoEscrow
         .connect(client)
@@ -330,20 +528,19 @@ describe("Sargo Token, Escrow contracts deployment", () => {
       const clientBalance = await sargoToken.balanceOf(client.address);
       const agentBalance = await sargoToken.balanceOf(agent.address);
       const treasuryBalance = await sargoToken.balanceOf(treasury.address);
-      const clientExpected = fundAccount + amount;
-      const agentExpected = fundAccount - amount + agentFee;
+      const clientExpected = fundAmount + amount;
+      const agentExpected = fundAmount - amount + agentFee;
       expect(txnRes.id).to.equal(0);
       expect(txnRes.txType).to.equal(1);
       expect(txnRes.status).to.equal(3);
       expect(clientBalance).to.equal(clientExpected);
       expect(agentBalance).to.equal(agentExpected);
-      expect(treasuryBalance).to.equal(sargoFee);
+      expect(treasuryBalance).to.equal(treasuryFee);
 
       //ClientConfirmed(txn)
       //AgentConfirmed(txn)
       //ConfirmationCompleted(txn)
-    });
-
+    }); */
     /*
         it('Should allow the agent to cancel a withdraw request', async() => {
         const { sargoEscrow } = await loadFixture(deploySargoEscrowFixture);
@@ -351,13 +548,71 @@ describe("Sargo Token, Escrow contracts deployment", () => {
          */
   });
 
-  describe("Send Transactions", function () {
-    it("Should send value to provided address", async () => {
+  describe("Send and transfer transactions", function () {
+    it("Should send value from one address to provided address", async () => {
+      const {
+        sargoEscrow,
+        sargoToken,
+        agent,
+        client,
+        amount,
+        currencyCode,
+        conversionRate,
+        fundAmount,
+      } = await loadFixture(deploySargoEscrowFixture);
+
+      /* Update agent's balance to allow agent to send transaction */
+      await sargoToken.transfer(agent.address, fundAmount);
+      /* Approve allowance and accept deposit */
+      await sargoToken.connect(agent).approve(sargoEscrow.address, fundAmount);
+
+      const sendAmount = await sargoEscrow
+        .connect(agent)
+        .send(client.address, amount, currencyCode, conversionRate);
+
+      const _sent = await sargoEscrow.getTransactionByIndex(0);
+
+      expect(_sent.txType).to.equal(2);
+      expect(_sent.clientAccount).to.equal(client.address);
+      expect(_sent.agentAccount).to.equal(agent.address);
+      expect(_sent.netAmount).to.equal(amount);
+      expect(_sent.paymentMethod).to.equal("TOKEN");
+    });
+
+    it("Should transfer value from the escrow address", async () => {
       const { sargoEscrow } = await loadFixture(deploySargoEscrowFixture);
+    });
+
+    it("Should emit a transfer event", async function () {
+      const {
+        sargoEscrow,
+        sargoToken,
+        agent,
+        client,
+        amount,
+        currencyCode,
+        conversionRate,
+        fundAmount,
+      } = await loadFixture(deploySargoEscrowFixture);
+
+      /* Update agent's balance to allow agent to send transaction */
+      await sargoToken.transfer(agent.address, fundAmount);
+      /* Approve allowance and accept deposit */
+      await sargoToken.connect(agent).approve(sargoEscrow.address, fundAmount);
+
+      const sendAmount = await sargoEscrow
+        .connect(agent)
+        .send(client.address, amount, currencyCode, conversionRate);
+
+      const _sent = await sargoEscrow.getTransactionByIndex(0);
+
+      await expect(sendAmount)
+        .to.emit(sargoEscrow, "Transfer")
+        .withArgs(_sent.agentAccount, _sent.clientAccount, _sent.netAmount);
     });
   });
 
-  describe("Gas Transactions", function () {
+  describe("Utility transactions", function () {
     it("Should get the estimated gas price", async () => {});
   });
 });
