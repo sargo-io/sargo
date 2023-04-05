@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
- import "hardhat/console.sol";
- import "@openzeppelin/contracts/access/Ownable.sol";
- import './SargoAccessControl.sol';
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
+import "hardhat/console.sol";
 
-/**
- * @title SargoOwnable
- */
-contract SargoOwnable is Ownable {}
+//contract SargoOwnable is Ownable, AccessControl, Pausable {
+contract SargoOwnable is Ownable, Pausable {
+    constructor() {
+        //grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        //console.log("Contract deployed by:", msg.sender);
+    }
+}
