@@ -578,6 +578,7 @@ describe("Sargo Token, Escrow contracts deployment", () => {
       expect(_sent.netAmount).to.equal(amount);
       expect(_sent.paymentMethod).to.equal("TOKEN");
     });
+  });
 
     it("Should transfer value from the escrow address", async () => {
       const { sargoEscrow } = await loadFixture(deploySargoEscrowFixture);
