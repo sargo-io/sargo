@@ -47,7 +47,9 @@ contract SargoEscrow is SargoOwnable {
         bool agentApproved;
         bool clientApproved;
         string clientPhoneNumber;
+        //
         string agentPhoneNumber;
+        //
         string paymentMethod;
         uint256 timestamp;
     }
@@ -59,23 +61,6 @@ contract SargoEscrow is SargoOwnable {
 
     mapping(uint256 => Transaction) private transactions;
     mapping(address => Earning) private earnings;
-
-    constructor(
-        address _tokenContractAddress,
-        uint256 _agentFee,
-        uint256 _treasuryFee,
-        address _treasuryAddress
-    ) {
-        require(_tokenContractAddress != address(0), "Invalid token address");
-        require(_treasuryAddress != address(0), "Invalid treasury address");
-        require(_agentFee > 0, "Agent fee required");
-        require(_treasuryFee > 0, "Treasury fee required");
-
-        tokenContractAddress = _tokenContractAddress;
-        treasuryAddress = _treasuryAddress;
-        agentFee = _agentFee;
-        treasuryFee = _treasuryFee;
-    }
 
     event TransactionInitiated(Transaction txn);
     event RequestAccepted(Transaction txn);
@@ -89,313 +74,6 @@ contract SargoEscrow is SargoOwnable {
         address indexed recipient,
         uint256 amount
     );
-
-    /**
-     * @dev Initialize a transaction
-     * @return Transaction
-     */
-    function _initTxn(
-        TransactionType _txType,
-        uint256 _amount,
-        string memory _currencyCode,
-        string memory _conversionRate,
-        string memory _paymentMethod
-    ) private returns (Transaction storage) {
-        uint256 txId = nextTransactionId;
-        uint256 totalAmount = _amount + (treasuryFee + agentFee);
-        Transaction storage _txn = transactions[txId];
-        _txn.id = txId;
-        //_txn.refNumber =
-        _txn.txType = _txType;
-        _txn.clientAccount = msg.sender;
-        _txn.status = Status.REQUEST;
-        _txn.currencyCode = _currencyCode;
-        _txn.conversionRate = _conversionRate;
-        _txn.tokenName = "cUSD";
-        _txn.totalAmount = totalAmount;
-        _txn.netAmount = _amount;
-        _txn.agentFee = agentFee;
-        _txn.treasuryFee = treasuryFee;
-        _txn.agentApproved = false;
-        _txn.clientApproved = false;
-        _txn.paymentMethod = _paymentMethod;
-        _txn.timestamp = block.timestamp;
-
-        nextTransactionId++;
-
-        return _txn;
-    }
-
-    /**
-     * @dev _currencyCode is the fiat currency code, _conversionRate is current fiat conversion rate
-     **/
-    function initiateDeposit(
-        uint256 _amount,
-        string calldata _currencyCode,
-        string calldata _conversionRate,
-        string memory _paymentMethod
-    ) public amountGreaterThanZero(_amount) whenNotPaused {
-        Transaction storage _txn = _initTxn(
-            TransactionType.DEPOSIT,
-            _amount,
-            _currencyCode,
-            _conversionRate,
-            _paymentMethod
-        );
-
-        emit TransactionInitiated(_txn);
-    }
-
-    //TODO: in withdrawal agentphone number comes from the request
-
-    /**
-     * @dev _currencyCode is the fiat currency code, _conversionRate is the current fiat conversion rate
-     **/
-    function initiateWithdrawal(
-        uint256 _amount,
-        string calldata _currencyCode,
-        string calldata _conversionRate,
-        string memory _paymentMethod
-    ) public amountGreaterThanZero(_amount) whenNotPaused {
-        Transaction storage _txn = _initTxn(
-            TransactionType.WITHDRAW,
-            _amount,
-            _currencyCode,
-            _conversionRate,
-            _paymentMethod
-        );
-
-        emit TransactionInitiated(_txn);
-    }
-
-    /**
-     * @dev Agent accepts to fulfill the deposit request
-     */
-    function acceptDeposit(
-        uint256 _txnId,
-        string calldata _phoneNumber
-    )
-        public
-        payable
-        awaitAgent(_txnId)
-        depositsOnly(_txnId)
-        nonClientOnly(_txnId)
-        sufficientBalance(_txnId)
-        whenNotPaused
-    {
-        Transaction storage _txn = transactions[_txnId];
-        _txn.agentAccount = msg.sender;
-        _txn.status = Status.PAIRED;
-        _txn.agentPhoneNumber = _phoneNumber;
-        _txn.timestamp = block.timestamp;
-
-        require(
-            IERC20(tokenContractAddress).transferFrom(
-                msg.sender,
-                address(this),
-                _txn.totalAmount
-            ),
-            "You don't have enough amount to accept this request."
-        );
-
-        emit RequestAccepted(_txn);
-    }
-
-    //TODO: when accepting a withdrawal request agent phone number was passed on the request
-    // no need to update phone number
-
-    /**
-     * @dev Client accepts to fulfill the withdraw request
-     * @dev The transaction is paired to the agent
-     */
-    function acceptWithdrawal(
-        uint256 _txnId,
-        string calldata _phoneNumber
-    )
-        public
-        payable
-        awaitAgent(_txnId)
-        withdrawalsOnly(_txnId)
-        nonClientOnly(_txnId)
-        sufficientBalance(_txnId)
-        whenNotPaused
-    {
-        Transaction storage _txn = transactions[_txnId];
-        _txn.agentAccount = msg.sender;
-        _txn.status = Status.PAIRED;
-        _txn.agentPhoneNumber = _phoneNumber;
-        _txn.timestamp = block.timestamp;
-
-        require(
-            IERC20(tokenContractAddress).transferFrom(
-                msg.sender,
-                address(this),
-                _txn.totalAmount
-            ),
-            "You don't have enough amount to accept this request."
-        );
-
-        emit RequestAccepted(_txn);
-    }
-
-    function clientConfirmPayment(
-        uint256 _txnId
-    ) public awaitConfirmation(_txnId) clientOnly(_txnId) whenNotPaused {
-        Transaction storage _txn = transactions[_txnId];
-
-        require(!_txn.clientApproved, "Client already confirmed payment");
-        _txn.clientApproved = true;
-        _txn.timestamp = block.timestamp;
-
-        emit ClientConfirmed(_txn);
-
-        if (_txn.agentApproved) {
-            _txn.status = Status.CONFIRMED;
-            emit ConfirmationCompleted(_txn);
-            completeTransaction(_txnId);
-        }
-    }
-
-    function agentConfirmPayment(
-        uint256 _txnId
-    ) public awaitConfirmation(_txnId) agentOnly(_txnId) whenNotPaused {
-        Transaction storage _txn = transactions[_txnId];
-
-        require(!_txn.agentApproved, "Agent already confirmed payment");
-        _txn.agentApproved = true;
-        _txn.timestamp = block.timestamp;
-
-        emit AgentConfirmed(_txn);
-
-        if (_txn.clientApproved) {
-            _txn.status = Status.CONFIRMED;
-            emit ConfirmationCompleted(_txn);
-            completeTransaction(_txnId);
-        }
-    }
-
-    /**
-     * @dev Transfer value to respective addresses
-     **/
-    function completeTransaction(uint256 _txnId) public whenNotPaused {
-        Transaction storage _txn = transactions[_txnId];
-        require(
-            _txn.clientAccount == msg.sender || _txn.agentAccount == msg.sender,
-            "Only involved accounts can complete the transaction"
-        );
-        require(
-            _txn.status == Status.CONFIRMED,
-            "Transaction not confirmed by both parties"
-        );
-
-        if (_txn.txType == TransactionType.DEPOSIT) {
-            IERC20(tokenContractAddress).transfer(
-                _txn.clientAccount,
-                _txn.netAmount
-            );
-        } else {
-            require(
-                IERC20(tokenContractAddress).transfer(
-                    _txn.agentAccount,
-                    _txn.netAmount
-                ),
-                "Transaction failed."
-            );
-        }
-
-        /* Agent's commission fee */
-        require(
-            IERC20(tokenContractAddress).transfer(
-                _txn.agentAccount,
-                _txn.agentFee
-            ),
-            "Agent fee transfer failed."
-        );
-
-        /* Treasury commission fee */
-        require(
-            IERC20(tokenContractAddress).transfer(
-                treasuryAddress,
-                _txn.treasuryFee
-            ),
-            "Transaction fee transfer failed."
-        );
-
-        /* Sum up agent fee earned */
-        Earning storage _earning = earnings[_txn.agentAccount];
-        _earning.totalEarned += _txn.agentFee;
-        _earning.timestamp = _txn.timestamp;
-
-        completedTransactions++;
-        _txn.status = Status.COMPLETED;
-
-        emit TransactionCompleted(_txn);
-    }
-
-    function cancelTransaction(
-        uint256 _txnId,
-        string calldata _reason
-    ) public payable clientOnly(_txnId) onRequestOnly(_txnId) whenNotPaused {
-        Transaction storage _txn = transactions[_txnId];
-        _txn.status = Status.CANCELLED;
-        _txn.timestamp = block.timestamp;
-
-        emit TransactionCancelled(_txn, _reason);
-    }
-
-    /**
-     * Get the next transaction request from transactions list.
-     * @return Transaction
-     */
-    function getNextUnpairedTransaction(
-        uint256 _txnId
-    ) public view returns (Transaction memory) {
-        Transaction storage _txn;
-        uint256 transactionId = _txnId;
-
-        /* limit transaction index */
-        if (_txnId > nextTransactionId) {
-            transactionId = nextTransactionId;
-        }
-
-        /* Traverse through transactions by index */
-        for (int index = int(transactionId); index >= 0; index--) {
-            _txn = transactions[uint(index)];
-
-            if (
-                _txn.clientAccount != address(0) &&
-                _txn.agentAccount == address(0)
-            ) {
-                return _txn;
-            }
-        }
-
-        _txn = transactions[nextTransactionId];
-
-        return _txn;
-    }
-
-    //TODO: get transactions array list - or get by type
-
-    /**
-     * @dev Get transactions by Id
-     * @return Transaction.
-     */
-    function getTransactionByIndex(
-        uint256 _txnId
-    ) public view returns (Transaction memory) {
-        return transactions[_txnId];
-    }
-
-    /**
-     * @dev Get earnings by address
-     * @return Earning
-     */
-    function getEarnings(
-        address _address
-    ) public view returns (Earning memory) {
-        return earnings[_address];
-    }
 
     modifier amountGreaterThanZero(uint256 _amount) {
         require(_amount > 0, "Amount must be greater than zero");
@@ -475,6 +153,364 @@ contract SargoEscrow is SargoOwnable {
         _;
     }
 
+    constructor(
+        address _tokenContractAddress,
+        uint256 _agentFee,
+        uint256 _treasuryFee,
+        address _treasuryAddress
+    ) {
+        require(_tokenContractAddress != address(0), "Invalid token address");
+        require(_treasuryAddress != address(0), "Invalid treasury address");
+        require(_agentFee > 0, "Agent fee required");
+        require(_treasuryFee > 0, "Treasury fee required");
+
+        tokenContractAddress = _tokenContractAddress;
+        treasuryAddress = _treasuryAddress;
+        agentFee = _agentFee;
+        treasuryFee = _treasuryFee;
+    }
+
+    /**
+     * @dev Initialize a transaction
+     * @return Transaction
+     */
+    function _initTxn(
+        TransactionType _txType,
+        uint256 _amount,
+        string memory _currencyCode,
+        string memory _conversionRate,
+        string memory _paymentMethod
+    ) private returns (Transaction storage) {
+        uint256 txId = nextTransactionId;
+        uint256 totalAmount = _amount + (treasuryFee + agentFee);
+        Transaction storage _txn = transactions[txId];
+        _txn.id = txId;
+        //_txn.refNumber =
+        _txn.txType = _txType;
+        _txn.clientAccount = msg.sender;
+        _txn.status = Status.REQUEST;
+        _txn.currencyCode = _currencyCode;
+        _txn.conversionRate = _conversionRate;
+        _txn.tokenName = "cUSD";
+        _txn.totalAmount = totalAmount;
+        _txn.netAmount = _amount;
+        _txn.agentFee = agentFee;
+        _txn.treasuryFee = treasuryFee;
+        _txn.agentApproved = false;
+        _txn.clientApproved = false;
+        _txn.paymentMethod = _paymentMethod;
+        _txn.timestamp = block.timestamp;
+
+        nextTransactionId++;
+
+        return _txn;
+    }
+
+    /**
+     * @notice _currencyCode is the fiat currency code, _conversionRate is current fiat conversion rate
+     **/
+    function initiateDeposit(
+        uint256 _amount,
+        string calldata _currencyCode,
+        string calldata _conversionRate,
+        string calldata _paymentMethod
+    ) public amountGreaterThanZero(_amount) whenNotPaused nonReentrant {
+        Transaction storage _txn = _initTxn(
+            TransactionType.DEPOSIT,
+            _amount,
+            _currencyCode,
+            _conversionRate,
+            _paymentMethod
+        );
+
+        emit TransactionInitiated(_txn);
+    }
+
+    //TODO: in withdrawal agentphone number comes from the request
+
+    /**
+     * @notice _currencyCode is the fiat currency code, _conversionRate is the current fiat conversion rate
+     **/
+    function initiateWithdrawal(
+        uint256 _amount,
+        string calldata _currencyCode,
+        string calldata _conversionRate,
+        string calldata _paymentMethod
+    ) public amountGreaterThanZero(_amount) whenNotPaused nonReentrant {
+        Transaction storage _txn = _initTxn(
+            TransactionType.WITHDRAW,
+            _amount,
+            _currencyCode,
+            _conversionRate,
+            _paymentMethod
+        );
+
+        emit TransactionInitiated(_txn);
+    }
+
+    /**
+     * @notice Agent accepts to fulfill a deposit request
+     */
+    function acceptDeposit(
+        uint256 _txnId,
+        string calldata _phoneNumber
+    )
+        public
+        payable
+        awaitAgent(_txnId)
+        depositsOnly(_txnId)
+        nonClientOnly(_txnId)
+        sufficientBalance(_txnId)
+        whenNotPaused
+        nonReentrant
+    {
+        Transaction storage _txn = transactions[_txnId];
+        _txn.agentAccount = msg.sender;
+        _txn.status = Status.PAIRED;
+        _txn.agentPhoneNumber = _phoneNumber;
+        _txn.timestamp = block.timestamp;
+
+        require(
+            IERC20(tokenContractAddress).transferFrom(
+                msg.sender,
+                address(this),
+                _txn.totalAmount
+            ),
+            "You don't have enough amount to accept this request."
+        );
+
+        emit RequestAccepted(_txn);
+    }
+
+    //TODO: when accepting a withdrawal request agent phone number was passed on the request
+    // no need to update phone number
+
+    /**
+     * @notice Client accepts to fulfill a withdraw request, transaction is paired to the agent
+     */
+    function acceptWithdrawal(
+        uint256 _txnId,
+        string calldata _phoneNumber
+    )
+        public
+        payable
+        awaitAgent(_txnId)
+        withdrawalsOnly(_txnId)
+        nonClientOnly(_txnId)
+        sufficientBalance(_txnId)
+        whenNotPaused
+        nonReentrant
+    {
+        Transaction storage _txn = transactions[_txnId];
+        _txn.agentAccount = msg.sender;
+        _txn.status = Status.PAIRED;
+        _txn.agentPhoneNumber = _phoneNumber;
+        _txn.timestamp = block.timestamp;
+
+        require(
+            IERC20(tokenContractAddress).transferFrom(
+                msg.sender,
+                address(this),
+                _txn.totalAmount
+            ),
+            "You don't have enough amount to accept this request."
+        );
+
+        emit RequestAccepted(_txn);
+    }
+
+    function clientConfirmPayment(
+        uint256 _txnId
+    )
+        public
+        awaitConfirmation(_txnId)
+        clientOnly(_txnId)
+        whenNotPaused
+        nonReentrant
+    {
+        Transaction storage _txn = transactions[_txnId];
+
+        require(!_txn.clientApproved, "Client already confirmed payment");
+        _txn.clientApproved = true;
+        _txn.timestamp = block.timestamp;
+
+        emit ClientConfirmed(_txn);
+
+        if (_txn.agentApproved) {
+            _txn.status = Status.CONFIRMED;
+            emit ConfirmationCompleted(_txn);
+            completeTransaction(_txnId);
+        }
+    }
+
+    function agentConfirmPayment(
+        uint256 _txnId
+    )
+        public
+        awaitConfirmation(_txnId)
+        agentOnly(_txnId)
+        whenNotPaused
+        nonReentrant
+    {
+        Transaction storage _txn = transactions[_txnId];
+
+        require(!_txn.agentApproved, "Agent already confirmed payment");
+        _txn.agentApproved = true;
+        _txn.timestamp = block.timestamp;
+
+        emit AgentConfirmed(_txn);
+
+        if (_txn.clientApproved) {
+            _txn.status = Status.CONFIRMED;
+            emit ConfirmationCompleted(_txn);
+            completeTransaction(_txnId);
+        }
+    }
+
+    /**
+     * @notice Transfer value to respective addresses
+     **/
+    function completeTransaction(
+        uint256 _txnId
+    ) public whenNotPaused nonReentrant {
+        Transaction storage _txn = transactions[_txnId];
+        require(
+            _txn.clientAccount == msg.sender || _txn.agentAccount == msg.sender,
+            "Only involved accounts can complete the transaction"
+        );
+        require(
+            _txn.status == Status.CONFIRMED,
+            "Transaction not confirmed by both parties"
+        );
+
+        if (_txn.txType == TransactionType.DEPOSIT) {
+            IERC20(tokenContractAddress).transfer(
+                _txn.clientAccount,
+                _txn.netAmount
+            );
+        } else {
+            require(
+                IERC20(tokenContractAddress).transfer(
+                    _txn.agentAccount,
+                    _txn.netAmount
+                ),
+                "Transaction failed."
+            );
+        }
+
+        /* Agent's commission fee */
+        require(
+            IERC20(tokenContractAddress).transfer(
+                _txn.agentAccount,
+                _txn.agentFee
+            ),
+            "Agent fee transfer failed."
+        );
+
+        /* Treasury commission fee */
+        require(
+            IERC20(tokenContractAddress).transfer(
+                treasuryAddress,
+                _txn.treasuryFee
+            ),
+            "Transaction fee transfer failed."
+        );
+
+        /* Sum up agent fee earned */
+        Earning storage _earning = earnings[_txn.agentAccount];
+        _earning.totalEarned += _txn.agentFee;
+        _earning.timestamp = _txn.timestamp;
+
+        completedTransactions++;
+        _txn.status = Status.COMPLETED;
+
+        emit TransactionCompleted(_txn);
+    }
+
+    function cancelTransaction(
+        uint256 _txnId,
+        string calldata _reason
+    )
+        public
+        payable
+        clientOnly(_txnId)
+        onRequestOnly(_txnId)
+        whenNotPaused
+        nonReentrant
+    {
+        Transaction storage _txn = transactions[_txnId];
+        _txn.status = Status.CANCELLED;
+        _txn.timestamp = block.timestamp;
+
+        emit TransactionCancelled(_txn, _reason);
+    }
+
+    //TODO: get all transaction at the request status
+
+    /**
+     * Get the next transaction request from transactions list.
+     * @return Transaction
+     */
+    function getRequestById(
+        uint256 _txnId
+    ) public view returns (Transaction memory) {
+        Transaction storage _txn;
+        uint256 transactionId = _txnId > nextTransactionId
+            ? nextTransactionId
+            : _txnId;
+
+        for (uint256 index = transactionId; index >= 0; index--) {
+            _txn = transactions[index];
+            if (
+                _txn.clientAccount != address(0) &&
+                _txn.agentAccount == address(0)
+            ) {
+                return _txn;
+            }
+        }
+
+        _txn = transactions[nextTransactionId];
+
+        return _txn;
+    }
+
+    /**
+     * @dev Get all transactions
+     * @return Transaction.
+     */
+    /* function getTransactions(
+        uint256 _limit,
+        uint256 _offset
+    ) public view returns (Transaction[] memory) {
+        Transaction[] memory _txnList = new Transaction[](_offset);
+
+        for (uint256 index = _limit; index >= _offset; index--) {
+            _txnList[index] = transactions[index];
+        }
+
+        return _txnList;
+    } */
+
+    /**
+     * @dev Get transactions by Id
+     * @return Transaction.
+     */
+    function getTransactionByIndex(
+        uint256 _txnId
+    ) public view returns (Transaction memory) {
+        return transactions[_txnId];
+    }
+
+    /**
+     * @dev Get earnings by address
+     * @return Earning
+     */
+    function getEarnings(
+        address _address
+    ) public view returns (Earning memory) {
+        return earnings[_address];
+    }
+
     /**
      * @dev _currencyCode is the Fiat currency code, _conversionRate is the Fiat conversion rate
      */
@@ -483,7 +519,7 @@ contract SargoEscrow is SargoOwnable {
         uint256 _amount,
         string calldata _currencyCode,
         string calldata _conversionRate
-    ) public payable whenNotPaused amountGreaterThanZero(_amount) {
+    ) public payable whenNotPaused nonReentrant amountGreaterThanZero(_amount) {
         require(_recipient != owner());
         require(_recipient != address(0), "Cannot use zero address");
         require(
@@ -525,12 +561,20 @@ contract SargoEscrow is SargoOwnable {
         uint256 _amount,
         string calldata _currencyCode,
         string calldata _conversionRate
-    ) public payable onlyOwner whenNotPaused amountGreaterThanZero(_amount) {
+    )
+        public
+        payable
+        onlyOwner
+        whenNotPaused
+        nonReentrant
+        amountGreaterThanZero(_amount)
+    {
+        require(msg.sender == owner(), "Only owner can transfer from escrow");
         require(_recipient != owner());
         require(_recipient != address(0), "Cannot use zero address");
+        require(_recipient != address(this));
         require(
-            IERC20(tokenContractAddress).balanceOf(address(msg.sender)) >
-                _amount,
+            IERC20(tokenContractAddress).balanceOf(address(this)) > _amount,
             "Insufficient balance"
         );
 
