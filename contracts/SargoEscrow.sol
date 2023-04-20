@@ -47,9 +47,9 @@ contract SargoEscrow is SargoOwnable {
         bool agentApproved;
         bool clientApproved;
         string clientPhoneNumber;
-        //
+        string clientName;
         string agentPhoneNumber;
-        //
+        string agentName;
         string paymentMethod;
         uint256 timestamp;
     }
@@ -66,7 +66,7 @@ contract SargoEscrow is SargoOwnable {
     event RequestAccepted(Transaction txn);
     event ClientConfirmed(Transaction txn);
     event AgentConfirmed(Transaction txn);
-    event ConfirmationCompleted(Transaction txn);
+    event TransactionConfirmed(Transaction txn);
     event TransactionCompleted(Transaction txn);
     event TransactionCancelled(Transaction txn, string reason);
     event Transfer(
@@ -207,6 +207,64 @@ contract SargoEscrow is SargoOwnable {
     }
 
     /**
+     * @notice Transfer value to respective addresses
+     **/
+    function _completeTransaction(uint256 _txnId) private whenNotPaused {
+        Transaction storage _txn = transactions[_txnId];
+        require(
+            _txn.clientAccount == msg.sender || _txn.agentAccount == msg.sender,
+            "Only involved accounts can complete the transaction"
+        );
+        require(
+            _txn.status == Status.CONFIRMED,
+            "Transaction not confirmed by both parties"
+        );
+
+        if (_txn.txType == TransactionType.DEPOSIT) {
+            IERC20(tokenContractAddress).transfer(
+                _txn.clientAccount,
+                _txn.netAmount
+            );
+        } else {
+            require(
+                IERC20(tokenContractAddress).transfer(
+                    _txn.agentAccount,
+                    _txn.netAmount
+                ),
+                "Transaction failed."
+            );
+        }
+
+        /* Agent's commission fee */
+        require(
+            IERC20(tokenContractAddress).transfer(
+                _txn.agentAccount,
+                _txn.agentFee
+            ),
+            "Agent fee transfer failed."
+        );
+
+        /* Treasury commission fee */
+        require(
+            IERC20(tokenContractAddress).transfer(
+                treasuryAddress,
+                _txn.treasuryFee
+            ),
+            "Transaction fee transfer failed."
+        );
+
+        /* Sum up agent fee earned */
+        Earning storage _earning = earnings[_txn.agentAccount];
+        _earning.totalEarned += _txn.agentFee;
+        _earning.timestamp = _txn.timestamp;
+
+        completedTransactions++;
+        _txn.status = Status.COMPLETED;
+
+        emit TransactionCompleted(_txn);
+    }
+
+    /**
      * @notice _currencyCode is the fiat currency code, _conversionRate is current fiat conversion rate
      **/
     function initiateDeposit(
@@ -338,8 +396,8 @@ contract SargoEscrow is SargoOwnable {
 
         if (_txn.agentApproved) {
             _txn.status = Status.CONFIRMED;
-            emit ConfirmationCompleted(_txn);
-            completeTransaction(_txnId);
+            emit TransactionConfirmed(_txn);
+            _completeTransaction(_txnId);
         }
     }
 
@@ -362,69 +420,9 @@ contract SargoEscrow is SargoOwnable {
 
         if (_txn.clientApproved) {
             _txn.status = Status.CONFIRMED;
-            emit ConfirmationCompleted(_txn);
-            completeTransaction(_txnId);
+            emit TransactionConfirmed(_txn);
+            _completeTransaction(_txnId);
         }
-    }
-
-    /**
-     * @notice Transfer value to respective addresses
-     **/
-    function completeTransaction(
-        uint256 _txnId
-    ) public whenNotPaused nonReentrant {
-        Transaction storage _txn = transactions[_txnId];
-        require(
-            _txn.clientAccount == msg.sender || _txn.agentAccount == msg.sender,
-            "Only involved accounts can complete the transaction"
-        );
-        require(
-            _txn.status == Status.CONFIRMED,
-            "Transaction not confirmed by both parties"
-        );
-
-        if (_txn.txType == TransactionType.DEPOSIT) {
-            IERC20(tokenContractAddress).transfer(
-                _txn.clientAccount,
-                _txn.netAmount
-            );
-        } else {
-            require(
-                IERC20(tokenContractAddress).transfer(
-                    _txn.agentAccount,
-                    _txn.netAmount
-                ),
-                "Transaction failed."
-            );
-        }
-
-        /* Agent's commission fee */
-        require(
-            IERC20(tokenContractAddress).transfer(
-                _txn.agentAccount,
-                _txn.agentFee
-            ),
-            "Agent fee transfer failed."
-        );
-
-        /* Treasury commission fee */
-        require(
-            IERC20(tokenContractAddress).transfer(
-                treasuryAddress,
-                _txn.treasuryFee
-            ),
-            "Transaction fee transfer failed."
-        );
-
-        /* Sum up agent fee earned */
-        Earning storage _earning = earnings[_txn.agentAccount];
-        _earning.totalEarned += _txn.agentFee;
-        _earning.timestamp = _txn.timestamp;
-
-        completedTransactions++;
-        _txn.status = Status.COMPLETED;
-
-        emit TransactionCompleted(_txn);
     }
 
     function cancelTransaction(

