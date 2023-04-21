@@ -172,6 +172,7 @@ contract SargoEscrow is SargoOwnable {
 
     /**
      * @dev Initialize a transaction
+     * @notice _currencyCode is the fiat currency code, _conversionRate is current fiat conversion rate
      * @return Transaction
      */
     function _initTxn(
@@ -179,7 +180,9 @@ contract SargoEscrow is SargoOwnable {
         uint256 _amount,
         string memory _currencyCode,
         string memory _conversionRate,
-        string memory _paymentMethod
+        string memory _paymentMethod,
+        string memory _name,
+        string memory _phoneNumber
     ) private returns (Transaction storage) {
         uint256 txId = nextTransactionId;
         uint256 totalAmount = _amount + (treasuryFee + agentFee);
@@ -187,7 +190,21 @@ contract SargoEscrow is SargoOwnable {
         _txn.id = txId;
         //_txn.refNumber =
         _txn.txType = _txType;
-        _txn.clientAccount = msg.sender;
+
+        if (_txType == TransactionType.DEPOSIT) {
+            _txn.clientAccount = msg.sender;
+            _txn.clientName = _name;
+            _txn.clientPhoneNumber = _phoneNumber;
+        } else if (_txType == TransactionType.WITHDRAW) {
+            _txn.agentAccount = msg.sender;
+            _txn.agentName = _name;
+            _txn.agentPhoneNumber = _phoneNumber;
+        } else if (_txType == TransactionType.TRANSFER) {
+            _txn.agentAccount = msg.sender;
+            _txn.agentName = _name;
+            _txn.agentPhoneNumber = _phoneNumber;
+        } else {}
+
         _txn.status = Status.REQUEST;
         _txn.currencyCode = _currencyCode;
         _txn.conversionRate = _conversionRate;
@@ -225,7 +242,7 @@ contract SargoEscrow is SargoOwnable {
                 _txn.clientAccount,
                 _txn.netAmount
             );
-        } else {
+        } else if (_txn.txType == TransactionType.WITHDRAW) {
             require(
                 IERC20(tokenContractAddress).transfer(
                     _txn.agentAccount,
@@ -233,7 +250,11 @@ contract SargoEscrow is SargoOwnable {
                 ),
                 "Transaction failed."
             );
+        } else {
+            //TODO: assert(commision cannot be earned for other transaction types)
         }
+
+        //TODO: Move transfer from send and transfer to centralize them here
 
         /* Agent's commission fee */
         require(
@@ -264,46 +285,46 @@ contract SargoEscrow is SargoOwnable {
         emit TransactionCompleted(_txn);
     }
 
-    /**
-     * @notice _currencyCode is the fiat currency code, _conversionRate is current fiat conversion rate
-     **/
     function initiateDeposit(
         uint256 _amount,
         string calldata _currencyCode,
         string calldata _conversionRate,
-        string calldata _paymentMethod
+        string calldata _paymentMethod,
+        string calldata _clientName,
+        string calldata _clientPhoneNumber
     ) public amountGreaterThanZero(_amount) whenNotPaused nonReentrant {
-        Transaction storage _txn = _initTxn(
-            TransactionType.DEPOSIT,
-            _amount,
-            _currencyCode,
-            _conversionRate,
-            _paymentMethod
+        emit TransactionInitiated(
+            _initTxn(
+                TransactionType.DEPOSIT,
+                _amount,
+                _currencyCode,
+                _conversionRate,
+                _paymentMethod,
+                _clientName,
+                _clientPhoneNumber
+            )
         );
-
-        emit TransactionInitiated(_txn);
     }
 
-    //TODO: in withdrawal agentphone number comes from the request
-
-    /**
-     * @notice _currencyCode is the fiat currency code, _conversionRate is the current fiat conversion rate
-     **/
     function initiateWithdrawal(
         uint256 _amount,
         string calldata _currencyCode,
         string calldata _conversionRate,
-        string calldata _paymentMethod
+        string calldata _paymentMethod,
+        string calldata _agentName,
+        string calldata _agentPhoneNumber
     ) public amountGreaterThanZero(_amount) whenNotPaused nonReentrant {
-        Transaction storage _txn = _initTxn(
-            TransactionType.WITHDRAW,
-            _amount,
-            _currencyCode,
-            _conversionRate,
-            _paymentMethod
+        emit TransactionInitiated(
+            _initTxn(
+                TransactionType.WITHDRAW,
+                _amount,
+                _currencyCode,
+                _conversionRate,
+                _paymentMethod,
+                _agentName,
+                _agentPhoneNumber
+            )
         );
-
-        emit TransactionInitiated(_txn);
     }
 
     /**
@@ -311,7 +332,8 @@ contract SargoEscrow is SargoOwnable {
      */
     function acceptDeposit(
         uint256 _txnId,
-        string calldata _phoneNumber
+        string calldata _agentName,
+        string calldata _agentPhoneNumber
     )
         public
         payable
@@ -325,7 +347,8 @@ contract SargoEscrow is SargoOwnable {
         Transaction storage _txn = transactions[_txnId];
         _txn.agentAccount = msg.sender;
         _txn.status = Status.PAIRED;
-        _txn.agentPhoneNumber = _phoneNumber;
+        _txn.agentName = _agentName;
+        _txn.agentPhoneNumber = _agentPhoneNumber;
         _txn.timestamp = block.timestamp;
 
         require(
@@ -340,15 +363,13 @@ contract SargoEscrow is SargoOwnable {
         emit RequestAccepted(_txn);
     }
 
-    //TODO: when accepting a withdrawal request agent phone number was passed on the request
-    // no need to update phone number
-
     /**
      * @notice Client accepts to fulfill a withdraw request, transaction is paired to the agent
      */
     function acceptWithdrawal(
         uint256 _txnId,
-        string calldata _phoneNumber
+        string calldata _clientName,
+        string calldata _clientPhoneNumber
     )
         public
         payable
@@ -360,9 +381,10 @@ contract SargoEscrow is SargoOwnable {
         nonReentrant
     {
         Transaction storage _txn = transactions[_txnId];
-        _txn.agentAccount = msg.sender;
+        _txn.clientAccount = msg.sender;
         _txn.status = Status.PAIRED;
-        _txn.agentPhoneNumber = _phoneNumber;
+        _txn.clientName = _clientName;
+        _txn.clientPhoneNumber = _clientPhoneNumber;
         _txn.timestamp = block.timestamp;
 
         require(
@@ -509,14 +531,13 @@ contract SargoEscrow is SargoOwnable {
         return earnings[_address];
     }
 
-    /**
-     * @dev _currencyCode is the Fiat currency code, _conversionRate is the Fiat conversion rate
-     */
     function send(
         address _recipient,
         uint256 _amount,
         string calldata _currencyCode,
-        string calldata _conversionRate
+        string calldata _conversionRate,
+        string calldata _senderName,
+        string calldata _senderPhoneNumber
     ) public payable whenNotPaused nonReentrant amountGreaterThanZero(_amount) {
         require(_recipient != owner());
         require(_recipient != address(0), "Cannot use zero address");
@@ -531,10 +552,11 @@ contract SargoEscrow is SargoOwnable {
             _amount,
             _currencyCode,
             _conversionRate,
-            "TOKEN"
+            "TOKEN",
+            _senderName,
+            _senderPhoneNumber
         );
 
-        _txn.agentAccount = msg.sender;
         _txn.clientAccount = _recipient;
 
         require(
@@ -546,19 +568,19 @@ contract SargoEscrow is SargoOwnable {
             "Insufficient balance"
         );
 
+        completedTransactions++;
         _txn.status = Status.COMPLETED;
 
         emit Transfer(msg.sender, _recipient, _amount);
     }
 
-    /**
-     * @dev _currencyCode is the Fiat currency code, _conversionRate is the Fiat conversion rate
-     */
     function transfer(
         address _recipient,
         uint256 _amount,
         string calldata _currencyCode,
-        string calldata _conversionRate
+        string calldata _conversionRate,
+        string calldata _senderName,
+        string calldata _senderPhoneNumber
     )
         public
         payable
@@ -581,10 +603,11 @@ contract SargoEscrow is SargoOwnable {
             _amount,
             _currencyCode,
             _conversionRate,
-            "TOKEN"
+            "TOKEN",
+            _senderName,
+            _senderPhoneNumber
         );
 
-        _txn.agentAccount = msg.sender;
         _txn.clientAccount = _recipient;
 
         require(
@@ -592,6 +615,7 @@ contract SargoEscrow is SargoOwnable {
             "Transfer failed"
         );
 
+        completedTransactions++;
         _txn.status = Status.COMPLETED;
 
         emit Transfer(msg.sender, _recipient, _amount);
