@@ -479,6 +479,7 @@ contract SargoEscrow is SargoOwnable {
             "Insufficient balance"
         );
 
+        completedTransactions++;
         _txn.status = Status.COMPLETED;
         completedTransactions++;
 
@@ -524,6 +525,7 @@ contract SargoEscrow is SargoOwnable {
             "Transfer failed"
         );
 
+        completedTransactions++;
         _txn.status = Status.COMPLETED;
         completedTransactions++;
 

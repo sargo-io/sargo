@@ -400,6 +400,10 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
         .to.emit(sargoEscrow, "TransactionInitiated")
         .withArgs(_request);
 
+      await expect(depositRequest)
+        .to.emit(sargoEscrow, "TransactionInitiated")
+        .withArgs(_request);
+
       await expect(acceptDeposit)
         .to.emit(sargoEscrow, "RequestAccepted")
         .withArgs(_accepted);
@@ -827,10 +831,7 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
     it("Should allow the client and agent confirm fiat payment received - withdraw transaction", async () => {
       const {
         sargoEscrow,
-        sargoToken,
-        agent,
         client,
-        treasury,
         amount,
         currencyCode,
         conversionRate,
@@ -1116,6 +1117,32 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
       const _sent = await sargoEscrow.getTransactionById(0);
 
       await expect(sendAmount).to.emit(sargoEscrow, "Transfer").withArgs(_sent);
+    });
+
+    it("Should emit a transfer event when transfer function is called", async function () {
+      const {
+        sargoEscrow,
+        sargoToken,
+        owner,
+        client,
+        amount,
+        currencyCode,
+        conversionRate,
+        fundAmount,
+      } = await loadFixture(deploySargoEscrowFixture);
+
+      await sargoToken.transfer(sargoEscrow.address, fundAmount);
+      await sargoToken.connect(owner).approve(sargoEscrow.address, fundAmount);
+
+      const sendAmount = await sargoEscrow
+        .connect(owner)
+        .transfer(client.address, amount, currencyCode, conversionRate);
+
+      const _sent = await sargoEscrow.getTransactionByIndex(0);
+
+      await expect(sendAmount)
+        .to.emit(sargoEscrow, "Transfer")
+        .withArgs(_sent.agentAccount, _sent.clientAccount, _sent.netAmount);
     });
   });
 
