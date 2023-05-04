@@ -831,7 +831,10 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
     it("Should allow the client and agent confirm fiat payment received - withdraw transaction", async () => {
       const {
         sargoEscrow,
+        sargoToken,
         client,
+        agent,
+        treasury,
         amount,
         currencyCode,
         conversionRate,
@@ -1136,13 +1139,11 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
 
       const sendAmount = await sargoEscrow
         .connect(owner)
-        .transfer(client.address, amount, currencyCode, conversionRate);
+        .transfer(client.address, amount);
 
-      const _sent = await sargoEscrow.getTransactionByIndex(0);
+      const _sent = await sargoEscrow.getTransactionById(0);
 
-      await expect(sendAmount)
-        .to.emit(sargoEscrow, "Transfer")
-        .withArgs(_sent.agentAccount, _sent.clientAccount, _sent.netAmount);
+      await expect(sendAmount).to.emit(sargoEscrow, "Transfer").withArgs(_sent);
     });
   });
 
