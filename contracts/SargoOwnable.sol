@@ -6,8 +6,6 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-//import "hardhat/console.sol";
-
 //contract SargoOwnable is Ownable, AccessControl, Pausable {
 contract SargoOwnable is Ownable, Pausable, ReentrancyGuard {
     constructor() {

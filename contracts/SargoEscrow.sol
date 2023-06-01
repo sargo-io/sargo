@@ -114,9 +114,6 @@ contract SargoEscrow is SargoOwnable {
         require(transactions[_txnId].status == Status.REQUEST, "REQUEST only");
     }
 
-    /**
-     * @notice _currencyCode is the fiat currency code, _conversionRate is current fiat conversion rate
-     */
     function _initializeTransaction(
         TransactionType _txType,
         uint256 _amount,
@@ -126,7 +123,10 @@ contract SargoEscrow is SargoOwnable {
         string memory _name,
         string memory _phoneNumber
     ) private returns (Transaction storage) {
-        //uint256 txId = nextTxId;
+        if (nextTxId == 0) {
+            nextTxId = 1;
+        }
+
         Transaction storage _txn = transactions[nextTxId];
         _txn.id = nextTxId;
         //_txn.refNumber = block.timestamp;
@@ -166,25 +166,24 @@ contract SargoEscrow is SargoOwnable {
 
     /**
      * @notice Transfer value to respective addresses
+     * @notice The account that fulfills the request earns a commision
      **/
     function _completeTransaction(uint256 _txnId) private whenNotPaused {
         Transaction storage _txn = transactions[_txnId];
+        address _earnAccount;
 
         require(
             _txn.clientAccount == msg.sender || _txn.agentAccount == msg.sender,
             "Authorized accounts"
         );
-
         require(
             _txn.txType == TransactionType.DEPOSIT ||
                 _txn.txType == TransactionType.WITHDRAW,
             "Authorized tx type"
         );
-
         require(_txn.status == Status.CONFIRMED, "Not CONFIRMED");
 
-        //TODO: validate transaction values
-
+        /* fulfilled amount */
         require(
             IERC20(tokenContractAddress).transfer(
                 _txn.clientAccount,
@@ -193,35 +192,24 @@ contract SargoEscrow is SargoOwnable {
             "Transfer failed."
         );
 
-        //
-        /* if (_txn.txType == TransactionType.DEPOSIT) {
-            require(
-                IERC20(tokenContractAddress).transfer(
-                    _txn.clientAccount,
-                    _txn.netAmount
-                ),
-                "Transfer failed."
-            );
+        if (_txn.txType == TransactionType.DEPOSIT) {
+            _earnAccount = _txn.agentAccount;
         } else if (_txn.txType == TransactionType.WITHDRAW) {
-            require(
-                IERC20(tokenContractAddress).transfer(
-                    _txn.agentAccount,
-                    _txn.netAmount
-                ),
-                "Transfer failed."
-            );
-        } */
+            _earnAccount = _txn.clientAccount;
+        }
 
-        /* Agent's commission fee */
+        /* fulfillment fee */
         require(
-            IERC20(tokenContractAddress).transfer(
-                _txn.agentAccount,
-                _txn.agentFee
-            ),
-            "Agent fee failed."
+            IERC20(tokenContractAddress).transfer(_earnAccount, _txn.agentFee),
+            "Earn failed"
         );
 
-        /* Treasury commission fee */
+        /* Sum up agent fee earned */
+        Earning storage _earning = earnings[_earnAccount];
+        _earning.totalEarned += _txn.agentFee;
+        _earning.timestamp = _txn.timestamp;
+
+        /* Treasury fee */
         require(
             IERC20(tokenContractAddress).transfer(
                 treasuryAddress,
@@ -229,11 +217,6 @@ contract SargoEscrow is SargoOwnable {
             ),
             "Treasury fee failed."
         );
-
-        /* Sum up agent fee earned */
-        Earning storage _earning = earnings[_txn.agentAccount];
-        _earning.totalEarned += _txn.agentFee;
-        _earning.timestamp = _txn.timestamp;
 
         _txn.status = Status.COMPLETED;
         completedTransactions++;
@@ -396,10 +379,7 @@ contract SargoEscrow is SargoOwnable {
     ) public onRequestOnly(_txnId) whenNotPaused nonReentrant {
         Transaction storage _txn = transactions[_txnId];
 
-        require(
-            transactions[_txnId].status == Status.REQUEST,
-            "Authorized account only"
-        );
+        require(_txn.status == Status.REQUEST, "Authorized account only");
 
         _txn.status = Status.CANCELLED;
 
@@ -409,41 +389,70 @@ contract SargoEscrow is SargoOwnable {
     /**
      * Get the next transaction request from transactions list.
      */
-    function getRequestById(
-        uint256 _txnId
-    ) public view returns (Transaction memory) {
-        uint256 transactionId = _txnId > nextTxId ? nextTxId : _txnId;
+    // function getRequestById(
+    //     uint256 _txnId
+    // ) public view returns (Transaction memory) {
+    //     uint256 transactionId = _txnId > nextTxId ? nextTxId : _txnId;
 
-        for (uint256 index = transactionId; index >= 0; index--) {
-            //TODO: if is deposit client account must exist
-            //TODO: if is withdraw agent account must exist
+    //     for (uint256 index = transactionId; index >= 0; index--) {
+    //         //TODO: if is deposit client account must exist
+    //         //TODO: if is withdraw agent account must exist
 
-            /* if (
-                _txn.clientAccount != address(0) &&
-                _txn.agentAccount == address(0)
-            ) {
-                return _txn;
-            } */
-            if (transactions[index].status == Status.REQUEST) {
-                return transactions[index];
+    //         /* if (
+    //             _txn.clientAccount != address(0) &&
+    //             _txn.agentAccount == address(0)
+    //         ) {
+    //             return _txn;
+    //         } */
+    //         if (transactions[index].status == Status.REQUEST) {
+    //             return transactions[index];
+    //         }
+    //     }
+
+    //     return transactions[nextTxId];
+    // }
+
+    /// @notice get transactions list - by status, with limit and offset
+    function getTransactions(
+        uint256 _page,
+        uint256 _limit
+    ) public view returns (Transaction[] memory) {
+        //uint256 _nextTxId = nextTxId - 1;
+
+        require(_page > 0, "page size must be positive");
+
+        uint256 _startIndex = (_page - 1) * _limit;
+        uint256 _endIndex = _page * _limit;
+
+        Transaction storage _txn;
+        Transaction[] memory _transactions = new Transaction[](_endIndex);
+
+        for (uint256 _txnId = _endIndex; _txnId > _startIndex; _txnId--) {
+            _txn = transactions[_txnId];
+
+            if (_txn.id > 0) {
+                _transactions[_txnId] = _txn;
             }
         }
 
-        return transactions[nextTxId];
+        return _transactions;
     }
 
+    /// @notice Get a transaction by id
     function getTransactionById(
         uint256 _txnId
     ) public view returns (Transaction memory) {
         return transactions[_txnId];
     }
 
+    /// @notice Get accoummulated earnings for the provided account
     function getEarnings(
         address _address
     ) public view returns (Earning memory) {
         return earnings[_address];
     }
 
+    /// @notice Transafer tokens from the the sender account to a recipient account
     function send(
         address _recipient,
         uint256 _amount
@@ -479,13 +488,13 @@ contract SargoEscrow is SargoOwnable {
             "Insufficient balance"
         );
 
-        completedTransactions++;
         _txn.status = Status.COMPLETED;
         completedTransactions++;
 
         emit Transfer(_txn);
     }
 
+    /// @notice Transafer tokens from the contract to a recipient account
     function transfer(
         address _recipient,
         uint256 _amount
@@ -525,7 +534,6 @@ contract SargoEscrow is SargoOwnable {
             "Transfer failed"
         );
 
-        completedTransactions++;
         _txn.status = Status.COMPLETED;
         completedTransactions++;
 
