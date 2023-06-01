@@ -304,7 +304,7 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
         );
       //const _requested = await sargoEscrow.getRequestById(1);
 
-      const _requested = await sargoEscrow.getTransactions(2, 5);
+      const _requested = await sargoEscrow.getTransactions(1, 5);
 
       expect(_requested[1].id).to.equal(1);
       expect(_requested[1].clientAccount).to.equal(client.address);
