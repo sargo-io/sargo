@@ -4,9 +4,11 @@ pragma solidity ^0.8.17;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./SargoOwnable.sol";
 
+import "hardhat/console.sol";
+
 /**
  * @title SargoEscrow
- * @dev Buy, sell, transfer
+ * @dev Buy, sell, credit escrow
  */
 contract SargoEscrow is SargoOwnable {
     uint256 public nextTxId;
@@ -382,60 +384,11 @@ contract SargoEscrow is SargoOwnable {
         require(_txn.status == Status.REQUEST, "Authorized account only");
 
         _txn.status = Status.CANCELLED;
+        _txn.totalAmount = 0;
+        _txn.agentFee = 0;
+        _txn.treasuryFee = 0;
 
         emit TransactionCancelled(_txn, _reason);
-    }
-
-    /**
-     * Get the next transaction request from transactions list.
-     */
-    // function getRequestById(
-    //     uint256 _txnId
-    // ) public view returns (Transaction memory) {
-    //     uint256 transactionId = _txnId > nextTxId ? nextTxId : _txnId;
-
-    //     for (uint256 index = transactionId; index >= 0; index--) {
-    //         //TODO: if is deposit client account must exist
-    //         //TODO: if is withdraw agent account must exist
-
-    //         /* if (
-    //             _txn.clientAccount != address(0) &&
-    //             _txn.agentAccount == address(0)
-    //         ) {
-    //             return _txn;
-    //         } */
-    //         if (transactions[index].status == Status.REQUEST) {
-    //             return transactions[index];
-    //         }
-    //     }
-
-    //     return transactions[nextTxId];
-    // }
-
-    /// @notice get transactions list - by status, with limit and offset
-    function getTransactions(
-        uint256 _page,
-        uint256 _limit
-    ) public view returns (Transaction[] memory) {
-        //uint256 _nextTxId = nextTxId - 1;
-
-        require(_page > 0, "page size must be positive");
-
-        uint256 _startIndex = (_page - 1) * _limit;
-        uint256 _endIndex = _page * _limit;
-
-        Transaction storage _txn;
-        Transaction[] memory _transactions = new Transaction[](_endIndex);
-
-        for (uint256 _txnId = _endIndex; _txnId > _startIndex; _txnId--) {
-            _txn = transactions[_txnId];
-
-            if (_txn.id > 0) {
-                _transactions[_txnId] = _txn;
-            }
-        }
-
-        return _transactions;
     }
 
     /// @notice Get a transaction by id
@@ -495,7 +448,7 @@ contract SargoEscrow is SargoOwnable {
     }
 
     /// @notice Transafer tokens from the contract to a recipient account
-    function transfer(
+    function credit(
         address _recipient,
         uint256 _amount
     )
