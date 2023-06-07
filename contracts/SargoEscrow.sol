@@ -226,6 +226,8 @@ contract SargoEscrow is SargoOwnable {
         emit TransactionCompleted(_txn);
     }
 
+    /// @notice Initializes a deposit transaction
+    /// @notice Deposits allows the purchase of stable coin in exchange with fiat
     function initiateDeposit(
         uint256 _amount,
         string calldata _currencyCode,
@@ -247,6 +249,8 @@ contract SargoEscrow is SargoOwnable {
         );
     }
 
+    /// @notice Initializes a withdrawal transaction,
+    /// @notice Withdrawal allows the sale of stable coin in exchange with fiat
     function initiateWithdrawal(
         uint256 _amount,
         string calldata _currencyCode,
@@ -268,9 +272,8 @@ contract SargoEscrow is SargoOwnable {
         );
     }
 
-    /**
-     * @notice Agent accepts to fulfill a deposit request
-     */
+    /// @notice Counter-party accepts to fulfill a deposit request
+    /// @notice The counter-parties are paired by their addresses
     function acceptDeposit(
         uint256 _txnId,
         string calldata _agentName,
@@ -305,6 +308,8 @@ contract SargoEscrow is SargoOwnable {
         emit RequestAccepted(_txn);
     }
 
+    /// @notice Counter-party accepts to fulfill a withdrawal request
+    /// @notice The counter-parties are paired by their addresses
     function acceptWithdrawal(
         uint256 _txnId,
         string calldata _clientName,
@@ -339,6 +344,7 @@ contract SargoEscrow is SargoOwnable {
         emit RequestAccepted(_txn);
     }
 
+    /// @notice A transaction requires the buyer to confirm fait payment was made
     function clientConfirmPayment(
         uint256 _txnId
     ) public payable pairedOnly(_txnId) whenNotPaused nonReentrant {
@@ -357,6 +363,7 @@ contract SargoEscrow is SargoOwnable {
         }
     }
 
+    /// @notice A transaction requires the seller to confirm fait payment was received
     function agentConfirmPayment(
         uint256 _txnId
     ) public payable pairedOnly(_txnId) whenNotPaused nonReentrant {
@@ -375,6 +382,7 @@ contract SargoEscrow is SargoOwnable {
         }
     }
 
+    /// @notice Void a transaction request, allowed only at the request status
     function cancelTransaction(
         uint256 _txnId,
         string calldata _reason
