@@ -4,9 +4,11 @@ pragma solidity ^0.8.17;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./SargoOwnable.sol";
 
+import "hardhat/console.sol";
+
 /**
  * @title SargoEscrow
- * @dev Buy, sell, transfer
+ * @dev Buy, sell, credit escrow
  */
 contract SargoEscrow is SargoOwnable {
     uint256 public nextTxId;
@@ -114,9 +116,6 @@ contract SargoEscrow is SargoOwnable {
         require(transactions[_txnId].status == Status.REQUEST, "REQUEST only");
     }
 
-    /**
-     * @notice _currencyCode is the fiat currency code, _conversionRate is current fiat conversion rate
-     */
     function _initializeTransaction(
         TransactionType _txType,
         uint256 _amount,
@@ -126,7 +125,10 @@ contract SargoEscrow is SargoOwnable {
         string memory _name,
         string memory _phoneNumber
     ) private returns (Transaction storage) {
-        //uint256 txId = nextTxId;
+        if (nextTxId == 0) {
+            nextTxId = 1;
+        }
+
         Transaction storage _txn = transactions[nextTxId];
         _txn.id = nextTxId;
         //_txn.refNumber = block.timestamp;
@@ -166,25 +168,24 @@ contract SargoEscrow is SargoOwnable {
 
     /**
      * @notice Transfer value to respective addresses
+     * @notice The account that fulfills the request earns a commision
      **/
     function _completeTransaction(uint256 _txnId) private whenNotPaused {
         Transaction storage _txn = transactions[_txnId];
+        address _earnAccount;
 
         require(
             _txn.clientAccount == msg.sender || _txn.agentAccount == msg.sender,
             "Authorized accounts"
         );
-
         require(
             _txn.txType == TransactionType.DEPOSIT ||
                 _txn.txType == TransactionType.WITHDRAW,
             "Authorized tx type"
         );
-
         require(_txn.status == Status.CONFIRMED, "Not CONFIRMED");
 
-        //TODO: validate transaction values
-
+        /* fulfilled amount */
         require(
             IERC20(tokenContractAddress).transfer(
                 _txn.clientAccount,
@@ -193,35 +194,24 @@ contract SargoEscrow is SargoOwnable {
             "Transfer failed."
         );
 
-        //
-        /* if (_txn.txType == TransactionType.DEPOSIT) {
-            require(
-                IERC20(tokenContractAddress).transfer(
-                    _txn.clientAccount,
-                    _txn.netAmount
-                ),
-                "Transfer failed."
-            );
+        if (_txn.txType == TransactionType.DEPOSIT) {
+            _earnAccount = _txn.agentAccount;
         } else if (_txn.txType == TransactionType.WITHDRAW) {
-            require(
-                IERC20(tokenContractAddress).transfer(
-                    _txn.agentAccount,
-                    _txn.netAmount
-                ),
-                "Transfer failed."
-            );
-        } */
+            _earnAccount = _txn.clientAccount;
+        }
 
-        /* Agent's commission fee */
+        /* fulfillment fee */
         require(
-            IERC20(tokenContractAddress).transfer(
-                _txn.agentAccount,
-                _txn.agentFee
-            ),
-            "Agent fee failed."
+            IERC20(tokenContractAddress).transfer(_earnAccount, _txn.agentFee),
+            "Earn failed"
         );
 
-        /* Treasury commission fee */
+        /* Sum up agent fee earned */
+        Earning storage _earning = earnings[_earnAccount];
+        _earning.totalEarned += _txn.agentFee;
+        _earning.timestamp = _txn.timestamp;
+
+        /* Treasury fee */
         require(
             IERC20(tokenContractAddress).transfer(
                 treasuryAddress,
@@ -229,11 +219,6 @@ contract SargoEscrow is SargoOwnable {
             ),
             "Treasury fee failed."
         );
-
-        /* Sum up agent fee earned */
-        Earning storage _earning = earnings[_txn.agentAccount];
-        _earning.totalEarned += _txn.agentFee;
-        _earning.timestamp = _txn.timestamp;
 
         _txn.status = Status.COMPLETED;
         completedTransactions++;
@@ -396,54 +381,31 @@ contract SargoEscrow is SargoOwnable {
     ) public onRequestOnly(_txnId) whenNotPaused nonReentrant {
         Transaction storage _txn = transactions[_txnId];
 
-        require(
-            transactions[_txnId].status == Status.REQUEST,
-            "Authorized account only"
-        );
+        require(_txn.status == Status.REQUEST, "Authorized account only");
 
         _txn.status = Status.CANCELLED;
+        _txn.totalAmount = 0;
+        _txn.agentFee = 0;
+        _txn.treasuryFee = 0;
 
         emit TransactionCancelled(_txn, _reason);
     }
 
-    /**
-     * Get the next transaction request from transactions list.
-     */
-    function getRequestById(
-        uint256 _txnId
-    ) public view returns (Transaction memory) {
-        uint256 transactionId = _txnId > nextTxId ? nextTxId : _txnId;
-
-        for (uint256 index = transactionId; index >= 0; index--) {
-            //TODO: if is deposit client account must exist
-            //TODO: if is withdraw agent account must exist
-
-            /* if (
-                _txn.clientAccount != address(0) &&
-                _txn.agentAccount == address(0)
-            ) {
-                return _txn;
-            } */
-            if (transactions[index].status == Status.REQUEST) {
-                return transactions[index];
-            }
-        }
-
-        return transactions[nextTxId];
-    }
-
+    /// @notice Get a transaction by id
     function getTransactionById(
         uint256 _txnId
     ) public view returns (Transaction memory) {
         return transactions[_txnId];
     }
 
+    /// @notice Get accoummulated earnings for the provided account
     function getEarnings(
         address _address
     ) public view returns (Earning memory) {
         return earnings[_address];
     }
 
+    /// @notice Transafer tokens from the the sender account to a recipient account
     function send(
         address _recipient,
         uint256 _amount
@@ -479,14 +441,14 @@ contract SargoEscrow is SargoOwnable {
             "Insufficient balance"
         );
 
-        completedTransactions++;
         _txn.status = Status.COMPLETED;
         completedTransactions++;
 
         emit Transfer(_txn);
     }
 
-    function transfer(
+    /// @notice Transafer tokens from the contract to a recipient account
+    function credit(
         address _recipient,
         uint256 _amount
     )
@@ -525,7 +487,6 @@ contract SargoEscrow is SargoOwnable {
             "Transfer failed"
         );
 
-        completedTransactions++;
         _txn.status = Status.COMPLETED;
         completedTransactions++;
 
