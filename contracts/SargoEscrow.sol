@@ -2,6 +2,7 @@
 pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 import "./SargoOwnable.sol";
 
 import "hardhat/console.sol";
@@ -30,7 +31,8 @@ contract SargoEscrow is SargoOwnable {
         CONFIRMED,
         COMPLETED,
         CANCELLED,
-        DISPUTED
+        DISPUTED,
+        CLAIMED
     }
 
     struct Transaction {
@@ -156,6 +158,17 @@ contract SargoEscrow is SargoOwnable {
         require(transactions[_txnId].status == Status.REQUEST, "Not REQUEST");
     }
 
+    /// @notice Generates a unique refNumber
+    function _setRefNumber(
+        uint256 _txnId
+    ) private pure returns (string memory) {
+        //20499304283346259968
+
+        //0055234567890
+
+        return string.concat("0", Strings.toString(_txnId), "00000", "1111111");
+    }
+
     function _initializeTransaction(
         TransactionType _txType,
         uint256 _amount,
@@ -169,9 +182,11 @@ contract SargoEscrow is SargoOwnable {
             nextTxId = 1;
         }
 
+        //TODO: Validate refNumber uniqueness
+
         Transaction storage _txn = transactions[nextTxId];
         _txn.id = nextTxId;
-        //_txn.refNumber = block.timestamp;
+        _txn.refNumber = _setRefNumber(_txn.id);
         _txn.txType = _txType;
 
         if (_txType == TransactionType.DEPOSIT) {
@@ -218,12 +233,15 @@ contract SargoEscrow is SargoOwnable {
             _txn.clientAccount == msg.sender || _txn.agentAccount == msg.sender,
             "Authorized accounts"
         );
+
         require(
             _txn.txType == TransactionType.DEPOSIT ||
                 _txn.txType == TransactionType.WITHDRAW,
             "Authorized tx type"
         );
+
         require(_txn.status == Status.CONFIRMED, "Not CONFIRMED");
+        require(_txn.status != Status.DISPUTED, "DISPUTED");
 
         /* fulfilled amount */
         require(

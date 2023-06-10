@@ -237,6 +237,7 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
       const _netAmount = _totalAmount.sub(_txFees);
 
       expect(_request.id).to.equal(1);
+      expect(_request.refNumber).to.not.be.empty;
       expect(await sargoToken.balanceOf(_request.agentAccount)).to.equal(0);
       expect(_request.agentFee).to.equal(agentFee);
       expect(_request.treasuryFee).to.equal(treasuryFee);
@@ -632,7 +633,113 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
         .withArgs(_cancelled.id, _cancelled.timestamp, _cancelled, "reason");
     });
 
-    //disputeTransaction
+    it("Should allow for a deposit transaction to be flagged as disputed", async () => {
+      const {
+        sargoEscrow,
+        sargoToken,
+        agent,
+        client,
+        amount,
+        currencyCode,
+        conversionRate,
+        fundAmount,
+        paymentMethod,
+        clientName,
+        clientPhone,
+        agentName,
+        agentPhone,
+      } = await loadFixture(deploySargoEscrowFixture);
+
+      const depositRequest = await sargoEscrow
+        .connect(client)
+        .initiateDeposit(
+          amount,
+          currencyCode,
+          conversionRate,
+          paymentMethod,
+          clientName,
+          clientPhone
+        );
+      const _request = await sargoEscrow.getTransactionById(1);
+
+      await sargoToken.transfer(agent.address, fundAmount);
+      await sargoToken.connect(agent).approve(sargoEscrow.address, fundAmount);
+      const acceptDeposit = await sargoEscrow
+        .connect(agent)
+        .acceptDeposit(_request.id, agentName, agentPhone);
+      const _accepted = await sargoEscrow.getTransactionById(_request.id);
+
+      const disputedTx = await sargoEscrow
+        .connect(client)
+        .disputeTransaction(_accepted.id, "reason");
+      const _cancelled = await sargoEscrow.getTransactionById(_accepted.id);
+
+      expect(_cancelled.id).to.equal(1);
+      expect(_cancelled.clientAccount).to.equal(client.address);
+      expect(_cancelled.txType).to.equal(0);
+      expect(_cancelled.status).to.equal(5);
+      expect(_cancelled.agentAccount).to.equal(agent.address);
+      expect(_cancelled.agentName).to.equal(agentName);
+      expect(_cancelled.agentPhoneNumber).to.equal(agentPhone);
+
+      await expect(depositRequest)
+        .to.emit(sargoEscrow, "TransactionInitiated")
+        .withArgs(_request.id, _request.timestamp, _request);
+
+      await expect(disputedTx)
+        .to.emit(sargoEscrow, "TransactionDisputed")
+        .withArgs(_cancelled.id, _cancelled.timestamp, _cancelled, "reason");
+    });
+
+    it("Should emit a disputed deposit transaction event", async function () {
+      const {
+        sargoEscrow,
+        sargoToken,
+        agent,
+        client,
+        amount,
+        currencyCode,
+        conversionRate,
+        fundAmount,
+        paymentMethod,
+        clientName,
+        clientPhone,
+        agentName,
+        agentPhone,
+      } = await loadFixture(deploySargoEscrowFixture);
+
+      const depositRequest = await sargoEscrow
+        .connect(client)
+        .initiateDeposit(
+          amount,
+          currencyCode,
+          conversionRate,
+          paymentMethod,
+          clientName,
+          clientPhone
+        );
+      const _request = await sargoEscrow.getTransactionById(1);
+
+      await sargoToken.transfer(agent.address, fundAmount);
+      await sargoToken.connect(agent).approve(sargoEscrow.address, fundAmount);
+      const acceptDeposit = await sargoEscrow
+        .connect(agent)
+        .acceptDeposit(_request.id, agentName, agentPhone);
+      const _accepted = await sargoEscrow.getTransactionById(_request.id);
+
+      const disputedTx = await sargoEscrow
+        .connect(client)
+        .disputeTransaction(_accepted.id, "reason");
+      const _cancelled = await sargoEscrow.getTransactionById(_accepted.id);
+
+      await expect(depositRequest)
+        .to.emit(sargoEscrow, "TransactionInitiated")
+        .withArgs(_request.id, _request.timestamp, _request);
+
+      await expect(disputedTx)
+        .to.emit(sargoEscrow, "TransactionDisputed")
+        .withArgs(_cancelled.id, _cancelled.timestamp, _cancelled, "reason");
+    });
   });
 
   describe("Withdraw Transactions", function () {
@@ -668,6 +775,7 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
       const _netAmount = _totalAmount.sub(_txFees);
 
       expect(_request.id).to.equal(1);
+      expect(_request.refNumber).to.not.be.empty;
       expect(await sargoToken.balanceOf(_request.agentAccount)).to.equal(0);
       expect(_request.agentFee).to.equal(agentFee);
       expect(_request.treasuryFee).to.equal(treasuryFee);
@@ -1065,7 +1173,113 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
         .withArgs(_cancelled.id, _cancelled.timestamp, _cancelled, "reason");
     });
 
-    //disputeTransaction
+    it("Should allow for a withdraw transaction to be flagged as disputed", async () => {
+      const {
+        sargoEscrow,
+        sargoToken,
+        agent,
+        client,
+        amount,
+        currencyCode,
+        conversionRate,
+        fundAmount,
+        paymentMethod,
+        clientName,
+        clientPhone,
+        agentName,
+        agentPhone,
+      } = await loadFixture(deploySargoEscrowFixture);
+
+      const withdrawRequest = await sargoEscrow
+        .connect(agent)
+        .initiateWithdrawal(
+          amount,
+          currencyCode,
+          conversionRate,
+          paymentMethod,
+          agentName,
+          agentPhone
+        );
+      const _request = await sargoEscrow.getTransactionById(1);
+
+      await sargoToken.transfer(agent.address, fundAmount);
+      await sargoToken.connect(agent).approve(sargoEscrow.address, fundAmount);
+      const withdrawAccepted = await sargoEscrow
+        .connect(client)
+        .acceptWithdrawal(_request.id, clientName, clientPhone);
+
+      const _accepted = await sargoEscrow.getTransactionById(_request.id);
+      const disputedTx = await sargoEscrow
+        .connect(agent)
+        .disputeTransaction(_accepted.id, "reason");
+      const _cancelled = await sargoEscrow.getTransactionById(_accepted.id);
+
+      expect(_cancelled.id).to.equal(1);
+      expect(_cancelled.agentAccount).to.equal(agent.address);
+      expect(_cancelled.txType).to.equal(1);
+      expect(_cancelled.status).to.equal(5);
+      expect(_cancelled.clientAccount).to.equal(client.address);
+      expect(_cancelled.clientName).to.equal(clientName);
+      expect(_cancelled.clientPhoneNumber).to.equal(clientPhone);
+
+      await expect(withdrawRequest)
+        .to.emit(sargoEscrow, "TransactionInitiated")
+        .withArgs(_request.id, _request.timestamp, _request);
+
+      await expect(disputedTx)
+        .to.emit(sargoEscrow, "TransactionDisputed")
+        .withArgs(_cancelled.id, _cancelled.timestamp, _cancelled, "reason");
+    });
+
+    it("Should emit a disputed withdraw transaction event", async function () {
+      const {
+        sargoEscrow,
+        sargoToken,
+        client,
+        agent,
+        amount,
+        currencyCode,
+        conversionRate,
+        fundAmount,
+        paymentMethod,
+        clientName,
+        clientPhone,
+        agentName,
+        agentPhone,
+      } = await loadFixture(deploySargoEscrowFixture);
+
+      const withdrawRequest = await sargoEscrow
+        .connect(agent)
+        .initiateWithdrawal(
+          amount,
+          currencyCode,
+          conversionRate,
+          paymentMethod,
+          agentName,
+          agentPhone
+        );
+      const _request = await sargoEscrow.getTransactionById(1);
+
+      await sargoToken.transfer(agent.address, fundAmount);
+      await sargoToken.connect(agent).approve(sargoEscrow.address, fundAmount);
+      const withdrawAccepted = await sargoEscrow
+        .connect(client)
+        .acceptWithdrawal(_request.id, clientName, clientPhone);
+
+      const _accepted = await sargoEscrow.getTransactionById(_request.id);
+      const disputedTx = await sargoEscrow
+        .connect(agent)
+        .disputeTransaction(_accepted.id, "reason");
+      const _cancelled = await sargoEscrow.getTransactionById(_accepted.id);
+
+      await expect(withdrawRequest)
+        .to.emit(sargoEscrow, "TransactionInitiated")
+        .withArgs(_request.id, _request.timestamp, _request);
+
+      await expect(disputedTx)
+        .to.emit(sargoEscrow, "TransactionDisputed")
+        .withArgs(_cancelled.id, _cancelled.timestamp, _cancelled, "reason");
+    });
   });
 
   describe("Send and transfer transactions", function () {
