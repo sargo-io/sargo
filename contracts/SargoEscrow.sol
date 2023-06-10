@@ -29,7 +29,8 @@ contract SargoEscrow is SargoOwnable {
         PAIRED,
         CONFIRMED,
         COMPLETED,
-        CANCELLED
+        CANCELLED,
+        DISPUTED
     }
 
     struct Transaction {
@@ -63,14 +64,53 @@ contract SargoEscrow is SargoOwnable {
     mapping(uint256 => Transaction) private transactions;
     mapping(address => Earning) private earnings;
 
-    event TransactionInitiated(Transaction txn);
-    event RequestAccepted(Transaction txn);
-    event ClientConfirmed(Transaction txn);
-    event AgentConfirmed(Transaction txn);
-    event TransactionConfirmed(Transaction txn);
-    event TransactionCompleted(Transaction txn);
-    event TransactionCancelled(Transaction txn, string reason);
-    event Transfer(Transaction txn);
+    event TransactionInitiated(
+        uint256 indexed id,
+        uint256 indexed timestamp,
+        Transaction txn
+    );
+    event RequestAccepted(
+        uint256 indexed id,
+        uint256 indexed timestamp,
+        Transaction txn
+    );
+    event ClientConfirmed(
+        uint256 indexed id,
+        uint256 indexed timestamp,
+        Transaction txn
+    );
+    event AgentConfirmed(
+        uint256 indexed id,
+        uint256 indexed timestamp,
+        Transaction txn
+    );
+    event TransactionConfirmed(
+        uint256 indexed id,
+        uint256 indexed timestamp,
+        Transaction txn
+    );
+    event TransactionCompleted(
+        uint256 indexed id,
+        uint256 indexed timestamp,
+        Transaction txn
+    );
+    event TransactionCancelled(
+        uint256 indexed id,
+        uint256 indexed timestamp,
+        Transaction txn,
+        string reason
+    );
+    event TransactionDisputed(
+        uint256 indexed id,
+        uint256 indexed timestamp,
+        Transaction txn,
+        string reason
+    );
+    event Transfer(
+        uint256 indexed id,
+        uint256 indexed timestamp,
+        Transaction txn
+    );
 
     modifier amountGreaterThanZero(uint256 _amount) {
         _amountGreaterThanZero(_amount);
@@ -109,11 +149,11 @@ contract SargoEscrow is SargoOwnable {
     }
 
     function _pairedOnly(uint256 _txnId) private view {
-        require(transactions[_txnId].status == Status.PAIRED, "Not PAIRED.");
+        require(transactions[_txnId].status == Status.PAIRED, "Not PAIRED");
     }
 
     function _onRequestOnly(uint256 _txnId) private view {
-        require(transactions[_txnId].status == Status.REQUEST, "REQUEST only");
+        require(transactions[_txnId].status == Status.REQUEST, "Not REQUEST");
     }
 
     function _initializeTransaction(
@@ -223,7 +263,7 @@ contract SargoEscrow is SargoOwnable {
         _txn.status = Status.COMPLETED;
         completedTransactions++;
 
-        emit TransactionCompleted(_txn);
+        emit TransactionCompleted(_txn.id, _txn.timestamp, _txn);
     }
 
     /// @notice Initializes a deposit transaction
@@ -236,17 +276,17 @@ contract SargoEscrow is SargoOwnable {
         string calldata _clientName,
         string calldata _clientPhoneNumber
     ) public amountGreaterThanZero(_amount) whenNotPaused nonReentrant {
-        emit TransactionInitiated(
-            _initializeTransaction(
-                TransactionType.DEPOSIT,
-                _amount,
-                _currencyCode,
-                _conversionRate,
-                _paymentMethod,
-                _clientName,
-                _clientPhoneNumber
-            )
+        Transaction storage _txn = _initializeTransaction(
+            TransactionType.DEPOSIT,
+            _amount,
+            _currencyCode,
+            _conversionRate,
+            _paymentMethod,
+            _clientName,
+            _clientPhoneNumber
         );
+
+        emit TransactionInitiated(_txn.id, _txn.timestamp, _txn);
     }
 
     /// @notice Initializes a withdrawal transaction,
@@ -259,17 +299,17 @@ contract SargoEscrow is SargoOwnable {
         string calldata _agentName,
         string calldata _agentPhoneNumber
     ) public amountGreaterThanZero(_amount) whenNotPaused nonReentrant {
-        emit TransactionInitiated(
-            _initializeTransaction(
-                TransactionType.WITHDRAW,
-                _amount,
-                _currencyCode,
-                _conversionRate,
-                _paymentMethod,
-                _agentName,
-                _agentPhoneNumber
-            )
+        Transaction storage _txn = _initializeTransaction(
+            TransactionType.WITHDRAW,
+            _amount,
+            _currencyCode,
+            _conversionRate,
+            _paymentMethod,
+            _agentName,
+            _agentPhoneNumber
         );
+
+        emit TransactionInitiated(_txn.id, _txn.timestamp, _txn);
     }
 
     /// @notice Counter-party accepts to fulfill a deposit request
@@ -305,7 +345,7 @@ contract SargoEscrow is SargoOwnable {
             "Insufficient balance"
         );
 
-        emit RequestAccepted(_txn);
+        emit RequestAccepted(_txn.id, _txn.timestamp, _txn);
     }
 
     /// @notice Counter-party accepts to fulfill a withdrawal request
@@ -341,7 +381,7 @@ contract SargoEscrow is SargoOwnable {
             "Insufficient balance"
         );
 
-        emit RequestAccepted(_txn);
+        emit RequestAccepted(_txn.id, _txn.timestamp, _txn);
     }
 
     /// @notice A transaction requires the buyer to confirm fait payment was made
@@ -354,11 +394,11 @@ contract SargoEscrow is SargoOwnable {
         require(!_txn.clientApproved, "Client confirmed");
         _txn.clientApproved = true;
 
-        emit ClientConfirmed(_txn);
+        emit ClientConfirmed(_txn.id, _txn.timestamp, _txn);
 
         if (_txn.agentApproved) {
             _txn.status = Status.CONFIRMED;
-            emit TransactionConfirmed(_txn);
+            emit TransactionConfirmed(_txn.id, _txn.timestamp, _txn);
             _completeTransaction(_txnId);
         }
     }
@@ -373,11 +413,11 @@ contract SargoEscrow is SargoOwnable {
         require(!_txn.agentApproved, "Agent confirmed");
         _txn.agentApproved = true;
 
-        emit AgentConfirmed(_txn);
+        emit AgentConfirmed(_txn.id, _txn.timestamp, _txn);
 
         if (_txn.clientApproved) {
             _txn.status = Status.CONFIRMED;
-            emit TransactionConfirmed(_txn);
+            emit TransactionConfirmed(_txn.id, _txn.timestamp, _txn);
             _completeTransaction(_txnId);
         }
     }
@@ -389,14 +429,24 @@ contract SargoEscrow is SargoOwnable {
     ) public onRequestOnly(_txnId) whenNotPaused nonReentrant {
         Transaction storage _txn = transactions[_txnId];
 
-        require(_txn.status == Status.REQUEST, "Authorized account only");
-
         _txn.status = Status.CANCELLED;
         _txn.totalAmount = 0;
         _txn.agentFee = 0;
         _txn.treasuryFee = 0;
 
-        emit TransactionCancelled(_txn, _reason);
+        emit TransactionCancelled(_txn.id, _txn.timestamp, _txn, _reason);
+    }
+
+    /// @notice Flag transaction as disputed, allowed only at the Paired status
+    function disputeTransaction(
+        uint256 _txnId,
+        string calldata _reason
+    ) public pairedOnly(_txnId) whenNotPaused nonReentrant {
+        Transaction storage _txn = transactions[_txnId];
+
+        _txn.status = Status.DISPUTED;
+
+        emit TransactionDisputed(_txn.id, _txn.timestamp, _txn, _reason);
     }
 
     /// @notice Get a transaction by id
@@ -452,7 +502,7 @@ contract SargoEscrow is SargoOwnable {
         _txn.status = Status.COMPLETED;
         completedTransactions++;
 
-        emit Transfer(_txn);
+        emit Transfer(_txn.id, _txn.timestamp, _txn);
     }
 
     /// @notice Transafer tokens from the contract to a recipient account
@@ -498,6 +548,6 @@ contract SargoEscrow is SargoOwnable {
         _txn.status = Status.COMPLETED;
         completedTransactions++;
 
-        emit Transfer(_txn);
+        emit Transfer(_txn.id, _txn.timestamp, _txn);
     }
 }

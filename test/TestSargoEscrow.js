@@ -276,7 +276,7 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
 
       await expect(depositRequest)
         .to.emit(sargoEscrow, "TransactionInitiated")
-        .withArgs(_request);
+        .withArgs(_request.id, _request.timestamp, _request);
     });
 
     it("Should get a deposit request transaction by id", async () => {
@@ -372,11 +372,11 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
 
       await expect(depositRequest)
         .to.emit(sargoEscrow, "TransactionInitiated")
-        .withArgs(_request);
+        .withArgs(_request.id, _request.timestamp, _request);
 
       await expect(acceptDeposit)
         .to.emit(sargoEscrow, "RequestAccepted")
-        .withArgs(_accepted);
+        .withArgs(_accepted.id, _accepted.timestamp, _accepted);
     });
 
     it("Should emit the Accept deposit request event", async () => {
@@ -419,15 +419,15 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
 
       await expect(depositRequest)
         .to.emit(sargoEscrow, "TransactionInitiated")
-        .withArgs(_request);
+        .withArgs(_request.id, _request.timestamp, _request);
 
       await expect(depositRequest)
         .to.emit(sargoEscrow, "TransactionInitiated")
-        .withArgs(_request);
+        .withArgs(_request.id, _request.timestamp, _request);
 
       await expect(acceptDeposit)
         .to.emit(sargoEscrow, "RequestAccepted")
-        .withArgs(_accepted);
+        .withArgs(_accepted.id, _accepted.timestamp, _accepted);
     });
 
     it("Should allow the client and agent to confirm fiat payment received - Deposit request", async () => {
@@ -525,19 +525,27 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
 
       await expect(clientConfirmed)
         .to.emit(sargoEscrow, "ClientConfirmed")
-        .withArgs(_clientConfirmed);
+        .withArgs(
+          _clientConfirmed.id,
+          _clientConfirmed.timestamp,
+          _clientConfirmed
+        );
 
       /* await expect(agentConfirmed)
         .to.emit(sargoEscrow, "AgentConfirmed")
-        .withArgs(_agentConfirmed);
+        .withArgs(_agentConfirmed.id, _agentConfirmed.timestamp, _agentConfirmed);
 
       await expect(agentConfirmed)
         .to.emit(sargoEscrow, "ConfirmationCompleted")
-        .withArgs(_agentConfirmed); */
+        .withArgs(_agentConfirmed.id, _agentConfirmed.timestamp, _agentConfirmed); */
 
       await expect(agentConfirmed)
         .to.emit(sargoEscrow, "TransactionCompleted")
-        .withArgs(_agentConfirmed);
+        .withArgs(
+          _agentConfirmed.id,
+          _agentConfirmed.timestamp,
+          _agentConfirmed
+        );
     });
 
     it("Should allow the client to cancel a deposit request", async () => {
@@ -579,11 +587,11 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
 
       await expect(depositRequest)
         .to.emit(sargoEscrow, "TransactionInitiated")
-        .withArgs(_request);
+        .withArgs(_request.id, _request.timestamp, _request);
 
       await expect(cancelRequest)
         .to.emit(sargoEscrow, "TransactionCancelled")
-        .withArgs(_cancelled, "reason");
+        .withArgs(_cancelled.id, _cancelled.timestamp, _cancelled, "reason");
     });
 
     it("Should emit a deposit request cancelled event", async function () {
@@ -617,12 +625,14 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
 
       await expect(depositRequest)
         .to.emit(sargoEscrow, "TransactionInitiated")
-        .withArgs(_request);
+        .withArgs(_request.id, _request.timestamp, _request);
 
       await expect(cancelRequest)
         .to.emit(sargoEscrow, "TransactionCancelled")
-        .withArgs(_cancelled, "reason");
+        .withArgs(_cancelled.id, _cancelled.timestamp, _cancelled, "reason");
     });
+
+    //disputeTransaction
   });
 
   describe("Withdraw Transactions", function () {
@@ -671,7 +681,7 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
 
       await expect(withdrawRequest)
         .to.emit(sargoEscrow, "TransactionInitiated")
-        .withArgs(_request);
+        .withArgs(_request.id, _request.timestamp, _request);
     });
 
     it("Should emit withdraw request initiated event", async function () {
@@ -700,7 +710,7 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
 
       await expect(withdrawRequest)
         .to.emit(sargoEscrow, "TransactionInitiated")
-        .withArgs(_request);
+        .withArgs(_request.id, _request.timestamp, _request);
     });
 
     it("Should get a withdraw request transaction by id", async () => {
@@ -796,11 +806,11 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
 
       await expect(withdrawRequest)
         .to.emit(sargoEscrow, "TransactionInitiated")
-        .withArgs(_request);
+        .withArgs(_request.id, _request.timestamp, _request);
 
       await expect(withdrawAccepted)
         .to.emit(sargoEscrow, "RequestAccepted")
-        .withArgs(_accepted);
+        .withArgs(_accepted.id, _accepted.timestamp, _accepted);
     });
 
     it("Should emit the Accept withdrwal request event", async () => {
@@ -843,11 +853,11 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
 
       await expect(withdrawRequest)
         .to.emit(sargoEscrow, "TransactionInitiated")
-        .withArgs(_request);
+        .withArgs(_request.id, _request.timestamp, _request);
 
       await expect(withdrawAccepted)
         .to.emit(sargoEscrow, "RequestAccepted")
-        .withArgs(_accepted);
+        .withArgs(_accepted.id, _accepted.timestamp, _accepted);
     });
 
     it("Should allow the client and agent confirm fiat payment received - withdraw transaction", async () => {
@@ -946,19 +956,27 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
 
       await expect(clientConfirmed)
         .to.emit(sargoEscrow, "ClientConfirmed")
-        .withArgs(_clientConfirmed);
+        .withArgs(
+          _clientConfirmed.id,
+          _clientConfirmed.timestamp,
+          _clientConfirmed
+        );
 
       /* await expect(agentConfirmed)
         .to.emit(sargoEscrow, "AgentConfirmed")
-        .withArgs(_agentConfirmed);
+        .withArgs(_agentConfirmed.id, _agentConfirmed.timestamp, _agentConfirmed);
 
       await expect(agentConfirmed)
         .to.emit(sargoEscrow, "ConfirmationCompleted")
-        .withArgs(_agentConfirmed); */
+        .withArgs(_agentConfirmed.id, _agentConfirmed.timestamp, _agentConfirmed); */
 
       await expect(agentConfirmed)
         .to.emit(sargoEscrow, "TransactionCompleted")
-        .withArgs(_agentConfirmed);
+        .withArgs(
+          _agentConfirmed.id,
+          _agentConfirmed.timestamp,
+          _agentConfirmed
+        );
     });
 
     it("Should allow the agent to cancel a withdraw request", async () => {
@@ -1001,11 +1019,11 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
 
       await expect(withdrawRequest)
         .to.emit(sargoEscrow, "TransactionInitiated")
-        .withArgs(_request);
+        .withArgs(_request.id, _request.timestamp, _request);
 
       await expect(cancelRequest)
         .to.emit(sargoEscrow, "TransactionCancelled")
-        .withArgs(_cancelled, "reason");
+        .withArgs(_cancelled.id, _cancelled.timestamp, _cancelled, "reason");
     });
 
     it("Should emit a withdraw request cancelled event", async function () {
@@ -1040,12 +1058,14 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
 
       await expect(withdrawRequest)
         .to.emit(sargoEscrow, "TransactionInitiated")
-        .withArgs(_request);
+        .withArgs(_request.id, _request.timestamp, _request);
 
       await expect(cancelRequest)
         .to.emit(sargoEscrow, "TransactionCancelled")
-        .withArgs(_cancelled, "reason");
+        .withArgs(_cancelled.id, _cancelled.timestamp, _cancelled, "reason");
     });
+
+    //disputeTransaction
   });
 
   describe("Send and transfer transactions", function () {
@@ -1077,7 +1097,9 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
       expect(_sent.netAmount).to.equal(amount);
       expect(_sent.paymentMethod).to.equal("TOKEN");
 
-      await expect(sendAmount).to.emit(sargoEscrow, "Transfer").withArgs(_sent);
+      await expect(sendAmount)
+        .to.emit(sargoEscrow, "Transfer")
+        .withArgs(_sent.id, _sent.timestamp, _sent);
     });
 
     it("Should transfer value from the escrow address to provided address", async () => {
@@ -1108,7 +1130,9 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
       expect(_sent.netAmount).to.equal(amount);
       expect(_sent.paymentMethod).to.equal("TOKEN");
 
-      await expect(sendAmount).to.emit(sargoEscrow, "Transfer").withArgs(_sent);
+      await expect(sendAmount)
+        .to.emit(sargoEscrow, "Transfer")
+        .withArgs(_sent.id, _sent.timestamp, _sent);
     });
 
     it("Should emit a transfer event when send function is called", async function () {
@@ -1124,7 +1148,9 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
 
       const _sent = await sargoEscrow.getTransactionById(1);
 
-      await expect(sendAmount).to.emit(sargoEscrow, "Transfer").withArgs(_sent);
+      await expect(sendAmount)
+        .to.emit(sargoEscrow, "Transfer")
+        .withArgs(_sent.id, _sent.timestamp, _sent);
     });
 
     it("Should emit a transfer event when transfer function is called", async function () {
@@ -1140,7 +1166,9 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
 
       const _sent = await sargoEscrow.getTransactionById(1);
 
-      await expect(sendAmount).to.emit(sargoEscrow, "Transfer").withArgs(_sent);
+      await expect(sendAmount)
+        .to.emit(sargoEscrow, "Transfer")
+        .withArgs(_sent.id, _sent.timestamp, _sent);
     });
 
     it("Should emit a transfer event when transfer function is called", async function () {
@@ -1164,7 +1192,9 @@ describe("Sargo Token, Escrow contracts deployment and transactions", () => {
 
       const _sent = await sargoEscrow.getTransactionById(1);
 
-      await expect(sendAmount).to.emit(sargoEscrow, "Transfer").withArgs(_sent);
+      await expect(sendAmount)
+        .to.emit(sargoEscrow, "Transfer")
+        .withArgs(_sent.id, _sent.timestamp, _sent);
     });
   });
 
