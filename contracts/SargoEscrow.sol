@@ -161,12 +161,12 @@ contract SargoEscrow is SargoOwnable {
     /// @notice Generates a unique refNumber
     function _setRefNumber(
         uint256 _txnId
-    ) private pure returns (string memory) {
-        //20499304283346259968
+    ) private view returns (string memory) {
+        uint256 _base = (1 * 10 ** 19) + _txnId + block.timestamp;
 
-        //0055234567890
+        string memory _ref = string.concat(Strings.toString(_base));
 
-        return string.concat("0", Strings.toString(_txnId), "00000", "1111111");
+        return _ref;
     }
 
     function _initializeTransaction(
@@ -335,7 +335,8 @@ contract SargoEscrow is SargoOwnable {
     function acceptDeposit(
         uint256 _txnId,
         string calldata _agentName,
-        string calldata _agentPhoneNumber
+        string calldata _agentPhoneNumber,
+        string memory _conversionRate
     ) public onRequestOnly(_txnId) whenNotPaused nonReentrant {
         Transaction storage _txn = transactions[_txnId];
 
@@ -350,6 +351,7 @@ contract SargoEscrow is SargoOwnable {
             "Insufficient balance"
         );
 
+        _txn.conversionRate = _conversionRate;
         _txn.status = Status.PAIRED;
         _txn.agentName = _agentName;
         _txn.agentPhoneNumber = _agentPhoneNumber;
@@ -371,7 +373,8 @@ contract SargoEscrow is SargoOwnable {
     function acceptWithdrawal(
         uint256 _txnId,
         string calldata _clientName,
-        string calldata _clientPhoneNumber
+        string calldata _clientPhoneNumber,
+        string memory _conversionRate
     ) public onRequestOnly(_txnId) whenNotPaused nonReentrant {
         Transaction storage _txn = transactions[_txnId];
 
@@ -386,6 +389,7 @@ contract SargoEscrow is SargoOwnable {
             "Insufficient balance"
         );
 
+        _txn.conversionRate = _conversionRate;
         _txn.status = Status.PAIRED;
         _txn.clientName = _clientName;
         _txn.clientPhoneNumber = _clientPhoneNumber;
@@ -505,9 +509,6 @@ contract SargoEscrow is SargoOwnable {
         );
 
         require(_txn.txType == TransactionType.TRANSFER, "Invalid tx type");
-
-        _txn.clientAccount = _recipient;
-
         require(
             IERC20(tokenContractAddress).transferFrom(
                 msg.sender,
@@ -517,6 +518,7 @@ contract SargoEscrow is SargoOwnable {
             "Insufficient balance"
         );
 
+        _txn.clientAccount = _recipient;
         _txn.status = Status.COMPLETED;
         completedTransactions++;
 
