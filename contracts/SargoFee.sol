@@ -1,56 +1,54 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import "./SargoOwnable.sol";
-import "./SargoBase.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
  * @title SargoFee
- * @dev Maintain Sargo fee structure
+ * @dev Maintain Sargo fee parameters
  */
-contract SargoFee is SargoOwnable, SargoBase {
-    address public escrowContractAddress;
+contract SargoFee is Initializable, UUPSUpgradeable, OwnableUpgradeable {
+    uint256 public agentFee;
+    uint256 public treasuryFee;
 
-    struct Fee {
-        uint256 totalEarned;
-        uint256 timestamp;
+    function initialize(
+        uint256 _agentFee,
+        uint256 _treasuryFee
+    ) public initializer {
+        __Ownable_init();
+        __UUPSUpgradeable_init();
+        require(_agentFee > 0, "Agent fee");
+        require(_treasuryFee > 0, "Treasury fee");
+        agentFee = _agentFee;
+        treasuryFee = _treasuryFee;
     }
 
-    mapping(address => Fee) private fees;
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
 
-    function initialize(address _escrowContractAddress) public initializer {
-        require(
-            _escrowContractAddress != address(0),
-            "Escrow contract address required"
-        );
-
-        escrowContractAddress = _escrowContractAddress;
-    }
-
-    event Earned(address indexed _address, uint256 indexed timestamp, Fee txn);
+    event FeeSet(string feeName, uint256 fee);
 
     /**
-     * @dev Transfer value to respective addresses
-     * @notice The account that fulfills the request earns a commision
+     * @dev Set Agent fee value
+     * @notice The fee earned as commision
      **/
-    function _earn(
-        address _address,
-        uint256 _amount
-    ) private whenNotPaused onlyOwner {
-        address _earnAccount;
+    function setAgentFee(uint256 _agentFee) external onlyOwner {
+        require(_agentFee > 0, "Agent fee");
+        agentFee = _agentFee;
 
-        Fee storage _fee = fees[_earnAccount];
-        _fee.totalEarned += _amount;
-        _fee.timestamp = block.timestamp;
-
-        emit Earned(_address, _fee.timestamp, _fee);
+        emit FeeSet("AgentFee", agentFee);
     }
 
     /**
-     * @notice Get accoummulated fees for the provided address
-     */
-    function getFees(address _address) public view returns (Fee memory) {
-        return fees[_address];
+     * @dev Set treasury fee value
+     * @notice The fee retained by Sargo
+     **/
+    function setTreasuryFee(uint256 _treasuryFee) external onlyOwner {
+        require(_treasuryFee > 0, "Treasury fee");
+        treasuryFee = _treasuryFee;
+        emit FeeSet("treasuryFee", treasuryFee);
     }
 }

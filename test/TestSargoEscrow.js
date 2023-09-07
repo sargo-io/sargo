@@ -24,7 +24,8 @@ describe("==SARGO ESCROW TESTS ================================", () => {
     const [owner, sender, recipient, client, agent, treasury] =
       await ethers.getSigners();
 
-    const initialSupply = ethers.parseUnits("1000", "ether");
+    const supply = 1000;
+    const initialSupply = ethers.parseUnits(supply.toString(), "ether");
     const agentFee = BigInt(process.env.SARGO_AGENT_FEE); //TODO: removed in favour of fees contract
     const treasuryFee = BigInt(process.env.SARGO_TREASURY_FEE); //TODO: removed in favour of fees contract
     const amount = ethers.parseUnits("5", "ether");
@@ -38,6 +39,7 @@ describe("==SARGO ESCROW TESTS ================================", () => {
     const agentPhone = "254723000000";
     const paymentMethod = "Mpesa";
 
+    //ERC20 contract
     const SargoToken = await ethers.getContractFactory("SargoToken");
     const sargoToken = await upgrades.deployProxy(
       SargoToken,
@@ -45,18 +47,48 @@ describe("==SARGO ESCROW TESTS ================================", () => {
       { kind: "uups" }
     );
 
+    await sargoToken.waitForDeployment();
     await sargoToken.mint(owner.address, initialSupply);
+
+    //Fee contract
+    const SargoFee = await ethers.getContractFactory("SargoFee");
+    const sargoFee = await upgrades.deployProxy(
+      SargoFee,
+      [agentFee, treasuryFee],
+      {
+        kind: "uups",
+      }
+    );
+    await sargoFee.waitForDeployment();
+
+    //Earn contract
+    const SargoEarn = await ethers.getContractFactory("SargoEarn");
+    const sargoEarn = await upgrades.deployProxy(SargoEarn, {
+      kind: "uups",
+    });
+    await sargoEarn.waitForDeployment();
+
+    const TOKEN_ADDRESS = await sargoToken.getAddress();
+    const FEE_ADDRESS = await sargoFee.getAddress();
+    const EARN_ADDRESS = await sargoEarn.getAddress();
 
     const SargoEscrow = await ethers.getContractFactory("SargoEscrow");
     const sargoEscrow = await upgrades.deployProxy(
       SargoEscrow,
-      [sargoToken.address, agentFee, treasuryFee, treasury.address],
+      [TOKEN_ADDRESS, treasury.address, FEE_ADDRESS, EARN_ADDRESS],
       { kind: "uups" }
     );
 
-    // await sargoEscrow.deployed();
+    await sargoEscrow.waitForDeployment();
+
+    const ESCROW_ADDRESS = await sargoEscrow.getAddress();
+    console.log("SARGO_ESCROW deployed to:", ESCROW_ADDRESS);
 
     return {
+      TOKEN_ADDRESS,
+      FEE_ADDRESS,
+      EARN_ADDRESS,
+      ESCROW_ADDRESS,
       SargoEscrow,
       sargoEscrow,
       owner,
@@ -66,6 +98,7 @@ describe("==SARGO ESCROW TESTS ================================", () => {
       agent,
       SargoToken,
       sargoToken,
+
       initialSupply,
       treasury,
       amount,
@@ -84,41 +117,55 @@ describe("==SARGO ESCROW TESTS ================================", () => {
   }
 
   describe("Sargo Escrow Deployment", function () {
-    it("Should set the right Escrow name", async () => {
-      const { sargoEscrow } = await loadFixture(deployEscrowFixture);
-      expect(await sargoEscrow.name()).to.equal("SargoEscrow");
+    it("Should set the right Sargo escrow owner", async () => {
+      const { sargoEscrow, owner } = await loadFixture(deployEscrowFixture);
+      expect(await sargoEscrow.owner()).to.equal(owner.address);
     });
 
-    // it("Should set the right Sargo escrow owner", async () => {
-    //   const { sargoEscrow, owner } = await loadFixture(deployEscrowFixture);
-    //   expect(await sargoEscrow.owner()).to.equal(owner.address);
-    // });
+    it("Should set the right escrow address", async () => {
+      const { sargoEscrow, ESCROW_ADDRESS } = await loadFixture(
+        deployEscrowFixture
+      );
+      expect(await sargoEscrow.getAddress()).to.equal(ESCROW_ADDRESS);
+    });
 
-    // it("Should set the right escrow address", async () => {
-    //   const { sargoEscrow, sargoToken } = await loadFixture(
-    //     deployEscrowFixture
-    //   );
-    //   expect(await sargoEscrow.tokenContractAddress()).to.equal(
-    //     sargoToken.address
-    //   );
-    // });
+    it("Should set the right token address", async () => {
+      const { sargoEscrow, TOKEN_ADDRESS } = await loadFixture(
+        deployEscrowFixture
+      );
+      expect(await sargoEscrow.tokenAddress()).to.equal(TOKEN_ADDRESS);
+    });
 
-    // it("Should set the right tresury address", async () => {
-    //   const { sargoEscrow, treasury } = await loadFixture(deployEscrowFixture);
-    //   expect(await sargoEscrow.treasuryAddress()).to.equal(treasury.address);
-    // });
+    it("Should set the right tresury address", async () => {
+      const { sargoEscrow, treasury } = await loadFixture(deployEscrowFixture);
+      expect(await sargoEscrow.treasuryAddress()).to.equal(treasury.address);
+    });
 
-    // it("Should set the right agent fee", async () => {
-    //   const { sargoEscrow, agentFee } = await loadFixture(deployEscrowFixture);
-    //   expect(await sargoEscrow.agentFee()).to.equal(agentFee);
-    // });
+    it("Should set the right fee address", async () => {
+      const { sargoEscrow, FEE_ADDRESS } = await loadFixture(
+        deployEscrowFixture
+      );
+      expect(await sargoEscrow.feeAddress()).to.equal(FEE_ADDRESS);
+    });
 
-    // it("Should set the right treasury fee", async () => {
-    //   const { sargoEscrow, treasuryFee } = await loadFixture(
-    //     deployEscrowFixture
-    //   );
-    //   expect(await sargoEscrow.treasuryFee()).to.equal(treasuryFee);
-    // });
+    it("Should set the right earn address", async () => {
+      const { sargoEscrow, EARN_ADDRESS } = await loadFixture(
+        deployEscrowFixture
+      );
+      expect(await sargoEscrow.earnAddress()).to.equal(EARN_ADDRESS);
+    });
+
+    it("Should set the right agent fee", async () => {
+      const { sargoEscrow, agentFee } = await loadFixture(deployEscrowFixture);
+      expect(await sargoEscrow.getAgentFee()).to.equal(agentFee);
+    });
+
+    it("Should set the right treasury fee", async () => {
+      const { sargoEscrow, treasuryFee } = await loadFixture(
+        deployEscrowFixture
+      );
+      expect(await sargoEscrow.getTreasuryFee()).to.equal(treasuryFee);
+    });
   });
 
   // describe("Deposit Transactions", function () {

@@ -22,7 +22,7 @@ describe("==SARGO TOKEN TESTS ================================", () => {
       { kind: "uups" }
     );
 
-    //await sargoToken.deployed();
+    await sargoToken.waitForDeployment();
     await sargoToken.mint(owner.address, initialSupply);
 
     return {

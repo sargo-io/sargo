@@ -2,63 +2,35 @@
 pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/StringsUpgradeable.sol";
-import "./SargoOwnable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-//import "./SargoBase.sol";
+import "./SargoBase.sol";
+import "./SargoFee.sol";
 
 /**
  * @title SargoEscrow
  * @dev Buy, sell, transfer, credit escrow
  */
-contract SargoEscrow is SargoOwnable {
-    uint256 public nextTxId;
-    uint256 public agentFee;
-    uint256 public treasuryFee;
-    address public tokenContractAddress;
+contract SargoEscrow is
+    SargoBase,
+    Initializable,
+    UUPSUpgradeable,
+    OwnableUpgradeable,
+    PausableUpgradeable,
+    AccessControlUpgradeable,
+    ReentrancyGuardUpgradeable
+{
+    uint256 private nextTxId;
+    address public tokenAddress;
     address public treasuryAddress;
-
-    enum TransactionType {
-        DEPOSIT,
-        WITHDRAW,
-        TRANSFER
-    }
-
-    enum Status {
-        REQUEST,
-        PAIRED,
-        DISPUTED,
-        COMPLETED,
-        CANCELLED,
-        CLAIMED
-    }
-
-    struct Transaction {
-        uint256 id;
-        string refNumber;
-        TransactionType txType;
-        Status status;
-        string currencyCode;
-        uint256 conversionRate;
-        uint256 totalAmount;
-        uint256 netAmount;
-        uint256 agentFee;
-        uint256 treasuryFee;
-        CounterParty account;
-        string paymentMethod;
-        uint256 timestamp;
-    }
-
-    struct CounterParty {
-        address clientAccount;
-        string clientPhoneNumber;
-        string clientName;
-        bool clientApproved;
-        address agentAccount;
-        string agentPhoneNumber;
-        string agentName;
-        bool agentApproved;
-    }
+    address public feeAddress;
+    address public earnAddress;
+    bytes32 private constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     mapping(uint256 => Transaction) private transactions;
 
@@ -75,20 +47,40 @@ contract SargoEscrow is SargoOwnable {
     */
 
     function initialize(
-        address _tokenContractAddress,
-        uint256 _agentFee,
-        uint256 _treasuryFee,
-        address _treasuryAddress
+        address _tokenAddress,
+        address _treasuryAddress,
+        address _feeAddress,
+        address _earnAddress
     ) public initializer {
-        require(_tokenContractAddress != address(0), "Token address");
-        require(_treasuryAddress != address(0), "Treasury address");
-        require(_agentFee > 0, "Agent fee");
-        require(_treasuryFee > 0, "Treasury fee");
+        __Ownable_init();
+        __UUPSUpgradeable_init();
+        __AccessControl_init();
+        __Pausable_init();
+        __ReentrancyGuard_init();
 
-        tokenContractAddress = _tokenContractAddress;
+        require(_tokenAddress != address(0), "Token address");
+        require(_treasuryAddress != address(0), "Treasury address");
+        require(_feeAddress != address(0), "Fee address");
+        require(_earnAddress != address(0), "Earn address");
+        tokenAddress = _tokenAddress;
         treasuryAddress = _treasuryAddress;
-        agentFee = _agentFee;
-        treasuryFee = _treasuryFee;
+        feeAddress = _feeAddress;
+        earnAddress = _earnAddress;
+
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(PAUSER_ROLE, msg.sender);
+    }
+
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
+
+    function pause() public onlyOwner {
+        _pause();
+    }
+
+    function unPause() public onlyOwner {
+        _unpause();
     }
 
     event TransactionInitiated(
@@ -161,16 +153,12 @@ contract SargoEscrow is SargoOwnable {
         require(transactions[_txnId].status == Status.REQUEST, "Not REQUEST");
     }
 
-    /** @dev Generates a unique refNumber
-     * @notice Unique reference number assigned to new transaction
-     */
-    function setRefNumber(uint256 _txnId) private view returns (string memory) {
-        return
-            string.concat(
-                StringsUpgradeable.toString(
-                    (1 * 10 ** 19) + block.timestamp + _txnId
-                )
-            );
+    function getAgentFee() public view returns (uint256) {
+        return SargoFee(feeAddress).agentFee();
+    }
+
+    function getTreasuryFee() public view returns (uint256) {
+        return SargoFee(feeAddress).treasuryFee();
     }
 
     function _initializeTransaction(
@@ -205,16 +193,16 @@ contract SargoEscrow is SargoOwnable {
             _txn.account.agentName = _name;
             _txn.account.agentPhoneNumber = _phoneNumber;
         } else {
-            revert("Invalid tx type");
+            revert("Invalid tx");
         }
 
         _txn.status = Status.REQUEST;
         _txn.currencyCode = _currencyCode;
         _txn.conversionRate = _conversionRate;
-        _txn.totalAmount = _amount + (treasuryFee + agentFee);
+        _txn.totalAmount = _amount + (getTreasuryFee() + getAgentFee());
         _txn.netAmount = _amount;
-        _txn.agentFee = agentFee;
-        _txn.treasuryFee = treasuryFee;
+        _txn.fee.agentFee = getAgentFee();
+        _txn.fee.treasuryFee = getTreasuryFee();
         _txn.account.agentApproved = false;
         _txn.account.clientApproved = false;
         _txn.paymentMethod = _paymentMethod;
@@ -251,13 +239,13 @@ contract SargoEscrow is SargoOwnable {
         require(_txn.status != Status.DISPUTED, "DISPUTED");
 
         /* fulfilled amount */
-        // require(
-        //     IERC20Upgradeable(tokenContractAddress).transfer(
-        //         _txn.account.clientAccount,
-        //         _txn.netAmount
-        //     ),
-        //     "Transfer failed."
-        // );
+        require(
+            IERC20Upgradeable(tokenAddress).transfer(
+                _txn.account.clientAccount,
+                _txn.netAmount
+            ),
+            "Transfer failed."
+        );
 
         if (_txn.txType == TransactionType.DEPOSIT) {
             _earnAccount = _txn.account.agentAccount;
@@ -266,30 +254,30 @@ contract SargoEscrow is SargoOwnable {
         }
 
         /* fulfillment fee */
-        // require(
-        //     IERC20Upgradeable(tokenContractAddress).transfer(
-        //         _earnAccount,
-        //         _txn.agentFee
-        //     ),
-        //     "Earn failed"
-        // );
+        require(
+            IERC20Upgradeable(tokenAddress).transfer(
+                _earnAccount,
+                _txn.fee.agentFee
+            ),
+            "Earn failed"
+        );
 
         /* Sum up agent fee earned */
         //TODO: call external Earnings contract to update commision
         //TODO: call external Earnings contract to get commisions for address passed
 
         // Earning storage _earning = earnings[_earnAccount];
-        // _earning.totalEarned += _txn.agentFee;
+        // _earning.totalEarned += _txn.fee.agentFee;
         // _earning.timestamp = _txn.timestamp;
 
         /* Treasury fee */
-        // require(
-        //     IERC20Upgradeable(tokenContractAddress).transfer(
-        //         treasuryAddress,
-        //         _txn.treasuryFee
-        //     ),
-        //     "Treasury fee failed."
-        // );
+        require(
+            IERC20Upgradeable(tokenAddress).transfer(
+                treasuryAddress,
+                _txn.fee.treasuryFee
+            ),
+            "Treasury fee failed."
+        );
 
         _txn.status = Status.COMPLETED;
         //TODO: add txId to counter-party transactions mapping
@@ -361,7 +349,7 @@ contract SargoEscrow is SargoOwnable {
         _txn.account.agentAccount = msg.sender;
 
         require(
-            IERC20Upgradeable(tokenContractAddress).balanceOf(
+            IERC20Upgradeable(tokenAddress).balanceOf(
                 address(_txn.account.agentAccount)
             ) > _txn.totalAmount,
             "Insufficient balance"
@@ -373,7 +361,7 @@ contract SargoEscrow is SargoOwnable {
         _txn.account.agentPhoneNumber = _agentPhoneNumber;
 
         require(
-            IERC20Upgradeable(tokenContractAddress).transferFrom(
+            IERC20Upgradeable(tokenAddress).transferFrom(
                 _txn.account.agentAccount,
                 address(this),
                 _txn.totalAmount
@@ -402,7 +390,7 @@ contract SargoEscrow is SargoOwnable {
         _txn.account.clientAccount = msg.sender;
 
         require(
-            IERC20Upgradeable(tokenContractAddress).balanceOf(
+            IERC20Upgradeable(tokenAddress).balanceOf(
                 address(_txn.account.agentAccount)
             ) > _txn.totalAmount,
             "Insufficient balance"
@@ -414,7 +402,7 @@ contract SargoEscrow is SargoOwnable {
         _txn.account.clientPhoneNumber = _clientPhoneNumber;
 
         require(
-            IERC20Upgradeable(tokenContractAddress).transferFrom(
+            IERC20Upgradeable(tokenAddress).transferFrom(
                 _txn.account.agentAccount,
                 address(this),
                 _txn.totalAmount
@@ -477,8 +465,8 @@ contract SargoEscrow is SargoOwnable {
 
         _txn.status = Status.CANCELLED;
         _txn.totalAmount = 0;
-        _txn.agentFee = 0;
-        _txn.treasuryFee = 0;
+        _txn.fee.agentFee = 0;
+        _txn.fee.treasuryFee = 0;
 
         emit TransactionCancelled(_txn.id, _txn.timestamp, _txn, _reason);
     }
@@ -530,9 +518,8 @@ contract SargoEscrow is SargoOwnable {
         require(_recipient != msg.sender, "Invalid recipient");
         require(_recipient != address(0), "Zero address");
         require(
-            IERC20Upgradeable(tokenContractAddress).balanceOf(
-                address(msg.sender)
-            ) > _amount,
+            IERC20Upgradeable(tokenAddress).balanceOf(address(msg.sender)) >
+                _amount,
             "Insufficient balance"
         );
 
@@ -550,7 +537,7 @@ contract SargoEscrow is SargoOwnable {
 
         require(_txn.txType == TransactionType.TRANSFER, "Invalid tx type");
         require(
-            IERC20Upgradeable(tokenContractAddress).transferFrom(
+            IERC20Upgradeable(tokenAddress).transferFrom(
                 msg.sender,
                 _recipient,
                 _amount
@@ -585,8 +572,7 @@ contract SargoEscrow is SargoOwnable {
         require(_recipient != address(this));
         require(_recipient != address(0), "Zero address");
         require(
-            IERC20Upgradeable(tokenContractAddress).balanceOf(address(this)) >
-                _amount,
+            IERC20Upgradeable(tokenAddress).balanceOf(address(this)) > _amount,
             "Insufficient balance"
         );
 
@@ -604,10 +590,7 @@ contract SargoEscrow is SargoOwnable {
 
         require(_txn.txType == TransactionType.TRANSFER, "Invalid tx type");
         require(
-            IERC20Upgradeable(tokenContractAddress).transfer(
-                _recipient,
-                _amount
-            ),
+            IERC20Upgradeable(tokenAddress).transfer(_recipient, _amount),
             "Transfer failed"
         );
 

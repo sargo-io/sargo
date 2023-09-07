@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import "./SargoOwnable.sol";
-import "./SargoBase.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
  * @title SargoEarn
  * @dev Maintain address earnings
  */
-contract SargoEarn is SargoOwnable {
-    address public escrowContractAddress;
-
+contract SargoEarn is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     struct Earning {
         uint256 totalEarned;
         uint256 timestamp;
@@ -19,14 +17,14 @@ contract SargoEarn is SargoOwnable {
 
     mapping(address => Earning) private earnings;
 
-    function initialize(address _escrowContractAddress) public initializer {
-        require(
-            _escrowContractAddress != address(0),
-            "Escrow contract address required"
-        );
-
-        escrowContractAddress = _escrowContractAddress;
+    function initialize() public initializer {
+        __Ownable_init();
+        __UUPSUpgradeable_init();
     }
+
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
 
     // event Earned(
     //     address indexed _address,
