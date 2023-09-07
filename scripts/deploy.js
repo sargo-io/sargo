@@ -1,4 +1,5 @@
 require("dotenv").config();
+const { ethers, upgrades } = require("hardhat");
 
 async function main() {
   const CELO_CUSD_TOKEN_ADDRESS = process.env.CELO_CUSD_TOKEN_ADDRESS;
@@ -13,15 +14,6 @@ async function main() {
         " option '--network localhost'"
     );
   }
-
-  /* 
-        const [deployer] = await ethers.getSigners();
-        console.log('Deploying contracts with the account: ', deployer.address);
-        console.log('Account balance: ', (await deployer.getBalance()).toString());
-        const Token = await ethers.getContractFactory('Token');
-        const token = await Token.deploy();
-        console.log('Token address: ', token.address); 
-    */
 
   const SargoEscrow = await ethers.getContractFactory("SargoEscrow");
   const sargoEscrow = await SargoEscrow.deploy(

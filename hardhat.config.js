@@ -1,6 +1,8 @@
 require("@nomicfoundation/hardhat-toolbox");
+require("@openzeppelin/hardhat-upgrades");
 require("dotenv").config();
 require("solidity-coverage");
+require("hardhat-contract-sizer");
 
 const SARGO_CELO_PRIVATE_KEY = process.env.SARGO_CELO_PRIVATE_KEY;
 const CELOSCAN_API_KEY = process.env.CELOSCAN_API_KEY;
@@ -41,5 +43,12 @@ module.exports = {
       alfajores: CELOSCAN_API_KEY,
       celo: CELOSCAN_API_KEY,
     },
+  },
+  contractSizer: {
+    alphaSort: true,
+    disambiguatePaths: false,
+    runOnCompile: true,
+    strict: true,
+    //only: [":ERC20$"],
   },
 };

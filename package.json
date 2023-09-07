@@ -1,10 +1,15 @@
 {
   "name": "sargo",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "A Decentralized Last-Mile  Peer-To-Peer On-And Off-Ramp On Celo.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "clean": "npx hardhat clean",
+    "build": "npx hardhat compile",
+    "test": "npx hardhat test",
+    "coverage": "npx hardhat coverage",
+    "docgen": "npx hardhat docgen",
+    "deploy:alfajores": "npx hardhat run scripts/deploy.js --network alfajores"
   },
   "repository": {
     "type": "git",
@@ -14,12 +19,15 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^2.0.0",
-    "hardhat": "^2.12.0"
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "hardhat": "^2.17.2",
+    "hardhat-contract-sizer": "^2.10.0"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^4.8.0",
-    "dotenv": "^16.0.3",
-    "solidity-coverage": "^0.8.2"
+    "@openzeppelin/contracts": "^4.9.3",
+    "@openzeppelin/contracts-upgradeable": "^4.9.3",
+    "@openzeppelin/hardhat-upgrades": "^2.2.1",
+    "dotenv": "^16.3.1",
+    "solidity-coverage": "^0.8.4"
   }
 }
