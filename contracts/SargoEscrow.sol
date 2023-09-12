@@ -11,6 +11,7 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 
 import "./SargoBase.sol";
 import "./SargoFee.sol";
+import "hardhat/console.sol";
 
 /**
  * @title SargoEscrow
@@ -25,32 +26,24 @@ contract SargoEscrow is
     AccessControlUpgradeable,
     ReentrancyGuardUpgradeable
 {
-    uint256 private nextTxId;
+    uint256 public nextTxId;
     address public tokenAddress;
     address public treasuryAddress;
     address public feeAddress;
-    address public earnAddress;
     bytes32 private constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     mapping(uint256 => Transaction) private transactions;
-
-    //TODO: move to separate contract
-    //mapping(address => Earning) private earnings;
-
-    /* 
-    //Requests feed
-    //mapping(uint256 => uint256) public requests;
+    mapping(address => Earning) private earnings;
+    mapping(uint256 => uint256) public requests;
 
     //Transactions by counter-party address
     //mapping(uint256 => CounterParty) public acountTransactions; //completedTransactions
-    //mapping(address => uint256) public acountTransactions; 
-    */
+    //mapping(address => uint256) public acountTransactions;
 
     function initialize(
         address _tokenAddress,
         address _treasuryAddress,
-        address _feeAddress,
-        address _earnAddress
+        address _feeAddress
     ) public initializer {
         __Ownable_init();
         __UUPSUpgradeable_init();
@@ -61,11 +54,9 @@ contract SargoEscrow is
         require(_tokenAddress != address(0), "Token address");
         require(_treasuryAddress != address(0), "Treasury address");
         require(_feeAddress != address(0), "Fee address");
-        require(_earnAddress != address(0), "Earn address");
         tokenAddress = _tokenAddress;
         treasuryAddress = _treasuryAddress;
         feeAddress = _feeAddress;
-        earnAddress = _earnAddress;
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(PAUSER_ROLE, msg.sender);
@@ -182,14 +173,14 @@ contract SargoEscrow is
         _txn.txType = _txType;
 
         if (_txType == TransactionType.DEPOSIT) {
-            _txn.account.clientAccount = msg.sender;
+            _txn.clientAccount = msg.sender;
             _txn.account.clientName = _name;
             _txn.account.clientPhoneNumber = _phoneNumber;
         } else if (
             _txType == TransactionType.WITHDRAW ||
             _txType == TransactionType.TRANSFER
         ) {
-            _txn.account.agentAccount = msg.sender;
+            _txn.agentAccount = msg.sender;
             _txn.account.agentName = _name;
             _txn.account.agentPhoneNumber = _phoneNumber;
         } else {
@@ -201,10 +192,10 @@ contract SargoEscrow is
         _txn.conversionRate = _conversionRate;
         _txn.totalAmount = _amount + (getTreasuryFee() + getAgentFee());
         _txn.netAmount = _amount;
-        _txn.fee.agentFee = getAgentFee();
-        _txn.fee.treasuryFee = getTreasuryFee();
-        _txn.account.agentApproved = false;
-        _txn.account.clientApproved = false;
+        _txn.agentFee = getAgentFee();
+        _txn.treasuryFee = getTreasuryFee();
+        _txn.agentApproved = false;
+        _txn.clientApproved = false;
         _txn.paymentMethod = _paymentMethod;
         _txn.timestamp = block.timestamp;
 
@@ -223,58 +214,51 @@ contract SargoEscrow is
         address _earnAccount;
 
         require(
-            _txn.account.clientAccount == msg.sender ||
-                _txn.account.agentAccount == msg.sender,
+            _txn.clientAccount == msg.sender || _txn.agentAccount == msg.sender,
             "Authorized accounts"
         );
+
         require(
             _txn.txType == TransactionType.DEPOSIT ||
                 _txn.txType == TransactionType.WITHDRAW,
             "Tx type"
         );
-        require(
-            _txn.account.agentApproved && _txn.account.clientApproved,
-            "Not CONFIRMED"
-        );
+
+        require(_txn.agentApproved && _txn.clientApproved, "Not CONFIRMED");
         require(_txn.status != Status.DISPUTED, "DISPUTED");
 
         /* fulfilled amount */
         require(
             IERC20Upgradeable(tokenAddress).transfer(
-                _txn.account.clientAccount,
+                _txn.clientAccount,
                 _txn.netAmount
             ),
             "Transfer failed."
         );
 
         if (_txn.txType == TransactionType.DEPOSIT) {
-            _earnAccount = _txn.account.agentAccount;
+            _earnAccount = _txn.agentAccount;
         } else if (_txn.txType == TransactionType.WITHDRAW) {
-            _earnAccount = _txn.account.clientAccount;
+            _earnAccount = _txn.clientAccount;
         }
 
         /* fulfillment fee */
         require(
             IERC20Upgradeable(tokenAddress).transfer(
                 _earnAccount,
-                _txn.fee.agentFee
+                _txn.agentFee
             ),
             "Earn failed"
         );
 
         /* Sum up agent fee earned */
-        //TODO: call external Earnings contract to update commision
-        //TODO: call external Earnings contract to get commisions for address passed
-
-        // Earning storage _earning = earnings[_earnAccount];
-        // _earning.totalEarned += _txn.fee.agentFee;
-        // _earning.timestamp = _txn.timestamp;
+        earn(_earnAccount, _txn.agentFee);
 
         /* Treasury fee */
         require(
             IERC20Upgradeable(tokenAddress).transfer(
                 treasuryAddress,
-                _txn.fee.treasuryFee
+                _txn.treasuryFee
             ),
             "Treasury fee failed."
         );
@@ -283,6 +267,18 @@ contract SargoEscrow is
         //TODO: add txId to counter-party transactions mapping
 
         emit TransactionCompleted(_txn.id, _txn.timestamp, _txn);
+    }
+
+    /**
+     * @dev Log amount earned to the passed address
+     * @notice The account that fulfills an order earns a commision
+     **/
+    function earn(address _earnAccount, uint256 _earnedAmount) private {
+        require(_earnedAmount > 0, "Earned amount");
+
+        Earning storage _earning = earnings[_earnAccount];
+        _earning.totalEarned += _earnedAmount;
+        _earning.timestamp = block.timestamp;
     }
 
     /**
@@ -344,13 +340,13 @@ contract SargoEscrow is
         Transaction storage _txn = transactions[_txnId];
 
         require(_txn.txType == TransactionType.DEPOSIT, "Deposit only");
-        require(msg.sender != _txn.account.clientAccount, "Agent only");
+        require(msg.sender != _txn.clientAccount, "Agent only");
 
-        _txn.account.agentAccount = msg.sender;
+        _txn.agentAccount = msg.sender;
 
         require(
             IERC20Upgradeable(tokenAddress).balanceOf(
-                address(_txn.account.agentAccount)
+                address(_txn.agentAccount)
             ) > _txn.totalAmount,
             "Insufficient balance"
         );
@@ -362,7 +358,7 @@ contract SargoEscrow is
 
         require(
             IERC20Upgradeable(tokenAddress).transferFrom(
-                _txn.account.agentAccount,
+                _txn.agentAccount,
                 address(this),
                 _txn.totalAmount
             ),
@@ -385,13 +381,13 @@ contract SargoEscrow is
         Transaction storage _txn = transactions[_txnId];
 
         require(_txn.txType == TransactionType.WITHDRAW, "Withdraw only");
-        require(msg.sender != _txn.account.agentAccount, "Client only");
+        require(msg.sender != _txn.agentAccount, "Client only");
 
-        _txn.account.clientAccount = msg.sender;
+        _txn.clientAccount = msg.sender;
 
         require(
             IERC20Upgradeable(tokenAddress).balanceOf(
-                address(_txn.account.agentAccount)
+                address(_txn.agentAccount)
             ) > _txn.totalAmount,
             "Insufficient balance"
         );
@@ -403,7 +399,7 @@ contract SargoEscrow is
 
         require(
             IERC20Upgradeable(tokenAddress).transferFrom(
-                _txn.account.agentAccount,
+                _txn.agentAccount,
                 address(this),
                 _txn.totalAmount
             ),
@@ -422,13 +418,13 @@ contract SargoEscrow is
     ) public payable pairedOnly(_txnId) whenNotPaused nonReentrant {
         Transaction storage _txn = transactions[_txnId];
 
-        require(msg.sender == _txn.account.clientAccount, "Client only");
-        require(!_txn.account.clientApproved, "Client confirmed");
-        _txn.account.clientApproved = true;
+        require(msg.sender == _txn.clientAccount, "Client only");
+        require(!_txn.clientApproved, "Client confirmed");
+        _txn.clientApproved = true;
 
         emit ClientConfirmed(_txn.id, _txn.timestamp, _txn);
 
-        if (_txn.account.agentApproved) {
+        if (_txn.agentApproved) {
             _completeTransaction(_txnId);
         }
     }
@@ -442,13 +438,13 @@ contract SargoEscrow is
     ) public payable pairedOnly(_txnId) whenNotPaused nonReentrant {
         Transaction storage _txn = transactions[_txnId];
 
-        require(msg.sender == _txn.account.agentAccount, "Agent only");
-        require(!_txn.account.agentApproved, "Agent confirmed");
-        _txn.account.agentApproved = true;
+        require(msg.sender == _txn.agentAccount, "Agent only");
+        require(!_txn.agentApproved, "Agent confirmed");
+        _txn.agentApproved = true;
 
         emit AgentConfirmed(_txn.id, _txn.timestamp, _txn);
 
-        if (_txn.account.clientApproved) {
+        if (_txn.clientApproved) {
             _completeTransaction(_txnId);
         }
     }
@@ -465,8 +461,8 @@ contract SargoEscrow is
 
         _txn.status = Status.CANCELLED;
         _txn.totalAmount = 0;
-        _txn.fee.agentFee = 0;
-        _txn.fee.treasuryFee = 0;
+        _txn.agentFee = 0;
+        _txn.treasuryFee = 0;
 
         emit TransactionCancelled(_txn.id, _txn.timestamp, _txn, _reason);
     }
@@ -499,11 +495,11 @@ contract SargoEscrow is
     /**
      * @notice Get accoummulated earnings for the provided address
      */
-    // function getEarnings(
-    //     address _address
-    // ) public view returns (Earning memory) {
-    //     return earnings[_address];
-    // }
+    function getEarnings(
+        address _address
+    ) public view returns (Earning memory) {
+        return earnings[_address];
+    }
 
     /**
      * @notice Transafer tokens from the the sender address to the provided recipient address
@@ -514,6 +510,9 @@ contract SargoEscrow is
         string calldata _currencyCode,
         uint256 _conversionRate
     ) public payable whenNotPaused nonReentrant amountGreaterThanZero(_amount) {
+        console.log(_recipient);
+        console.log(_amount);
+
         require(_recipient != owner());
         require(_recipient != msg.sender, "Invalid recipient");
         require(_recipient != address(0), "Zero address");
@@ -528,7 +527,7 @@ contract SargoEscrow is
             _amount,
             _currencyCode,
             _conversionRate,
-            "TOKEN",
+            "TRANSFER",
             "",
             ""
         );
@@ -545,7 +544,7 @@ contract SargoEscrow is
             "Transfer failed"
         );
 
-        _txn.account.clientAccount = _recipient;
+        _txn.clientAccount = _recipient;
         _txn.status = Status.COMPLETED;
 
         //TODO: add txId to counter-party transactions mapping
@@ -567,7 +566,6 @@ contract SargoEscrow is
         nonReentrant
         amountGreaterThanZero(_amount)
     {
-        require(msg.sender == owner(), "Only owner");
         require(_recipient != owner());
         require(_recipient != address(this));
         require(_recipient != address(0), "Zero address");
@@ -581,7 +579,7 @@ contract SargoEscrow is
             _amount,
             "",
             0,
-            "TOKEN",
+            "TRANSFER",
             "SARGO",
             ""
         );
@@ -594,7 +592,7 @@ contract SargoEscrow is
             "Transfer failed"
         );
 
-        _txn.account.clientAccount = _recipient;
+        _txn.clientAccount = _recipient;
         _txn.status = Status.COMPLETED;
 
         //TODO: add txId to counter-party transactions mapping

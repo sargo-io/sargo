@@ -9,6 +9,7 @@ contract SargoBase {
         WITHDRAW,
         TRANSFER
     }
+
     enum Status {
         REQUEST,
         PAIRED,
@@ -17,6 +18,7 @@ contract SargoBase {
         CANCELLED,
         CLAIMED
     }
+
     struct Transaction {
         uint256 id;
         string refNumber;
@@ -26,24 +28,27 @@ contract SargoBase {
         uint256 conversionRate;
         uint256 totalAmount;
         uint256 netAmount;
-        Fee fee;
+        uint256 agentFee;
+        uint256 treasuryFee;
+        address clientAccount;
+        address agentAccount;
         CounterParty account;
         string paymentMethod;
         uint256 timestamp;
+        bool agentApproved;
+        bool clientApproved;
     }
-    struct Fee {
-        uint256 agentFee;
-        uint256 treasuryFee;
-    }
+
     struct CounterParty {
-        address clientAccount;
         string clientPhoneNumber;
         string clientName;
-        bool clientApproved;
-        address agentAccount;
         string agentPhoneNumber;
         string agentName;
-        bool agentApproved;
+    }
+
+    struct Earning {
+        uint256 totalEarned;
+        uint256 timestamp;
     }
 
     /** @dev Generates a unique refNumber

@@ -4,8 +4,8 @@ const { ethers, upgrades } = require("hardhat");
 async function main() {
   const CELO_CUSD_TOKEN_ADDRESS = process.env.CELO_CUSD_TOKEN_ADDRESS;
   const SARGO_TREASURY_ADDRESS = process.env.SARGO_TREASURY_ADDRESS;
-  const SARGO_AGENT_FEE = process.env.SARGO_AGENT_FEE;
-  const SARGO_TREASURY_FEE = process.env.SARGO_TREASURY_FEE;
+  const SARGO_TRANSACTION_FEE_PERCENT =
+    process.env.SARGO_TRANSACTION_FEE_PERCENT;
 
   if (network.name === "hardhat") {
     console.warn(
@@ -15,12 +15,25 @@ async function main() {
     );
   }
 
+  /* 
+  
+  address _tokenAddress,
+        address _treasuryAddress,
+        address _feeAddress,
+        address _earnAddress
+
+  */
+
+  //TODO: deploy fee and earn addresses
+  const SARGO_FEE_ADDRESS = "";
+  const SARGO_EARN_ADDRESS = "";
+
   const SargoEscrow = await ethers.getContractFactory("SargoEscrow");
   const sargoEscrow = await SargoEscrow.deploy(
     CELO_CUSD_TOKEN_ADDRESS,
-    SARGO_AGENT_FEE,
-    SARGO_TREASURY_FEE,
-    SARGO_TREASURY_ADDRESS
+    SARGO_TREASURY_ADDRESS,
+    SARGO_FEE_ADDRESS,
+    SARGO_EARN_ADDRESS
   );
   await sargoEscrow.deployed();
 

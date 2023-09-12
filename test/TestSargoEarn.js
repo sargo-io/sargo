@@ -8,116 +8,49 @@
 // //TODO: test upgradeable
 // */
 
-// describe("==SARGO TOKEN TESTS ================================", () => {
-//   async function deployTokenFixture() {
-//     const [owner, recipient] = await ethers.getSigners();
-
-//     const supply = 1000;
-//     const initialSupply = ethers.parseUnits(supply.toString(), "ether");
-//     const amount = ethers.parseUnits("5", "ether");
-//     const SargoToken = await ethers.getContractFactory("SargoToken");
-//     const sargoToken = await upgrades.deployProxy(
-//       SargoToken,
-//       ["Sargo", "SGT"],
-//       { kind: "uups" }
+// describe("==SARGO EARN TESTS ================================", () => {
+//   async function deployEarnFixture() {
+//     const [owner, earner] = await ethers.getSigners();
+//     const transactionFee = ethers.parseUnits(
+//       process.env.SARGO_TRANSACTION_FEE_PERCENT,
+//       "ether"
 //     );
+//     const agentFee = ethers.parseUnits("0.5", "ether");
+//     const SargoEarn = await ethers.getContractFactory("SargoEarn");
+//     const sargoEarn = await upgrades.deployProxy(SargoEarn, {
+//       kind: "uups",
+//     });
 
-//     //await sargoToken.deployed();
-//     await sargoToken.mint(owner.address, initialSupply);
+//     await sargoEarn.waitForDeployment();
 
 //     return {
+//       SargoEarn,
+//       sargoEarn,
 //       owner,
-//       SargoToken,
-//       sargoToken,
-//       supply,
-//       initialSupply,
-//       amount,
-//       recipient,
+//       earner,
+//       transactionFee,
+//       agentFee,
 //     };
 //   }
 
-//   describe("Sargo Token Deployment", function () {
-//     it("Should set the right Token name", async () => {
-//       const { sargoToken } = await loadFixture(deployTokenFixture);
-//       expect(await sargoToken.name()).to.equal("Sargo");
+//   describe("Sargo Earn Deployment", function () {
+//     it("Should set the right Earn owner", async () => {
+//       const { sargoEarn, owner } = await loadFixture(deployEarnFixture);
+//       expect(await sargoEarn.owner()).to.equal(owner.address);
 //     });
 
-//     it("Should set the right Token owner", async () => {
-//       const { sargoToken, owner } = await loadFixture(deployTokenFixture);
-//       expect(await sargoToken.owner()).to.equal(owner.address);
-//     });
+//     it("Should update the address with earnings", async () => {
+//       const { sargoEarn, earner, agentFee } = await loadFixture(
+//         deployEarnFixture
+//       );
 
-//     it("Should set the initial total supply", async () => {
-//       const { sargoToken, initialSupply } = await loadFixture(
-//         deployTokenFixture
-//       );
-//       expect(await sargoToken.totalSupply()).to.equal(initialSupply);
-//     });
+//       const _preEarnings = await sargoEarn.earnings();
+//       await sargoEarn.earn(earner.address, agentFee);
+//       const _postEarnings = await sargoEarn.earnings();
 
-//     it("Should update the balance of the owner with the total supply value", async () => {
-//       const { sargoToken, initialSupply } = await loadFixture(
-//         deployTokenFixture
+//       expect(_postEarnings[earner.address]).to.equal(
+//         _preEarnings[earner.address].totalEarned + agentFee
 //       );
-//       expect(await sargoToken.balanceOf(sargoToken.owner())).to.equal(
-//         initialSupply
-//       );
-//     });
-
-//     it("Should increase the total supply by initial supply value", async () => {
-//       const { sargoToken, initialSupply, supply, owner } = await loadFixture(
-//         deployTokenFixture
-//       );
-//       await sargoToken.mint(owner.address, initialSupply);
-//       const expected = ethers.parseUnits((supply + supply).toString(), "ether");
-//       expect(await sargoToken.totalSupply()).to.equal(expected);
-//     });
-
-//     it("Should decrease the total supply by initial supply value", async () => {
-//       const { sargoToken, initialSupply, supply } = await loadFixture(
-//         deployTokenFixture
-//       );
-//       sargoToken.burn(sargoToken.address, initialSupply);
-//       const expected = ethers.parseUnits(supply.toString(), "ether");
-//       expect(await sargoToken.totalSupply()).to.equal(expected);
-//     });
-
-//     it("Should transfer amount into the provided recipient address", async () => {
-//       const { sargoToken, amount, recipient } = await loadFixture(
-//         deployTokenFixture
-//       );
-//       await sargoToken.transfer(recipient.address, amount);
-//       expect(await sargoToken.balanceOf(recipient.address)).to.equal(amount);
-//     });
-
-//     it("Should approve amount as allowance for tranfer of value from sender", async () => {
-//       const { sargoToken, owner, amount } = await loadFixture(
-//         deployTokenFixture
-//       );
-//       await sargoToken.connect(owner).approve(owner.address, amount);
-//       expect(await sargoToken.allowance(owner.address, owner.address)).to.equal(
-//         amount
-//       );
-//     });
-
-//     it("Should transfer provided amount from one address into another", async () => {
-//       const { sargoToken, owner, recipient, amount } = await loadFixture(
-//         deployTokenFixture
-//       );
-//       await sargoToken.connect(owner).approve(owner.address, amount);
-//       await sargoToken.transferFrom(owner.address, recipient.address, amount);
-//       expect(await sargoToken.balanceOf(recipient.address)).to.equal(amount);
-//     });
-
-//     it("Should emit a transfer event", async function () {
-//       const { sargoToken, owner, recipient, amount } = await loadFixture(
-//         deployTokenFixture
-//       );
-//       await sargoToken.connect(owner).approve(owner.address, amount);
-//       await expect(
-//         sargoToken.transferFrom(owner.address, recipient.address, amount)
-//       )
-//         .to.emit(sargoToken, "Transfer")
-//         .withArgs(owner.address, recipient.address, amount);
 //     });
 //   });
 // });
