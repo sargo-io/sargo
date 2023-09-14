@@ -35,8 +35,11 @@ contract SargoBase {
         CounterParty account;
         string paymentMethod;
         uint256 timestamp;
-        bool agentApproved;
         bool clientApproved;
+        bool agentApproved;
+        string clientKey;
+        string agentKey;
+        uint256 requestIndex;
     }
 
     struct CounterParty {

@@ -12,7 +12,7 @@
 //   async function deployEarnFixture() {
 //     const [owner, earner] = await ethers.getSigners();
 //     const transactionFee = ethers.parseUnits(
-//       process.env.SARGO_TRANSACTION_FEE_PERCENT,
+//       process.env.SARGO_ORDERS_FEE_PERCENT,
 //       "ether"
 //     );
 //     const agentFee = ethers.parseUnits("0.5", "ether");

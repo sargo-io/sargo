@@ -4,8 +4,7 @@ const { ethers, upgrades } = require("hardhat");
 async function main() {
   const CELO_CUSD_TOKEN_ADDRESS = process.env.CELO_CUSD_TOKEN_ADDRESS;
   const SARGO_TREASURY_ADDRESS = process.env.SARGO_TREASURY_ADDRESS;
-  const SARGO_TRANSACTION_FEE_PERCENT =
-    process.env.SARGO_TRANSACTION_FEE_PERCENT;
+  const SARGO_ORDERS_FEE_PERCENT = process.env.SARGO_ORDERS_FEE_PERCENT;
 
   if (network.name === "hardhat") {
     console.warn(
