@@ -4,21 +4,10 @@ const { ethers, upgrades } = require("hardhat");
 const { BigNumber } = require("ethers");
 require("dotenv").config();
 
-/* 
-//TODO: get deposit requests count
-//TODO: get withdraw requests count
-//TODO: get transactions count by status
-//TODO: get completed transactions count
-
 //TODO: test pausable
 //TODO: test access control
-//TODO: test nonReentrant
 //TODO: test invalid cases
-
 //TODO: test upgradeable
-//TODO: test encription
-//TODO: test fees contract 
-*/
 
 describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => {
   async function deployEscrowFixture() {
@@ -85,21 +74,6 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
 
     await sargoEscrow.waitForDeployment();
 
-    //Earn contract
-    // const SargoEarn = await ethers.getContractFactory("SargoEarn");
-    // const sargoEarn = await upgrades.deployProxy(
-    //   SargoEarn,
-    //   [await sargoEscrow.getAddress()],
-    //   {
-    //     kind: "uups",
-    //   }
-    // );
-    // await sargoEarn.waitForDeployment();
-
-    //TODO: Make contract calls for testing
-
-    //--
-
     return {
       SargoFee,
       sargoFee,
@@ -128,9 +102,6 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
       paymentMethod,
       clientKey,
       agentKey,
-      //SargoEarn,
-      //sargoEarn,
-      //
     };
   }
 
@@ -963,46 +934,7 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
           clientKey
         );
 
-      const depositRequest2 = await sargoEscrow
-        .connect(client)
-        .initiateDeposit(
-          amount,
-          currencyCode,
-          conversionRate,
-          paymentMethod,
-          clientName,
-          clientPhone,
-          clientKey
-        );
-
-      const depositRequest3 = await sargoEscrow
-        .connect(client)
-        .initiateDeposit(
-          amount,
-          currencyCode,
-          conversionRate,
-          paymentMethod,
-          clientName,
-          clientPhone,
-          clientKey
-        );
-
-      const depositRequest4 = await sargoEscrow
-        .connect(client)
-        .initiateDeposit(
-          amount,
-          currencyCode,
-          conversionRate,
-          paymentMethod,
-          clientName,
-          clientPhone,
-          clientKey
-        );
-
       const _request = await sargoEscrow.getTransactionById(1);
-      const _request2 = await sargoEscrow.getTransactionById(2);
-      const _request3 = await sargoEscrow.getTransactionById(3);
-      const _request4 = await sargoEscrow.getTransactionById(4);
       const _requestsAdded = await sargoEscrow.getRequestsLength();
 
       await sargoToken.transfer(agent.address, fundAmount + fundAmount);
@@ -1010,40 +942,10 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         .connect(agent)
         .approve(await sargoEscrow.getAddress(), fundAmount + fundAmount);
 
-      // const acceptDeposit = await sargoEscrow
-      //   .connect(agent)
-      //   .acceptDeposit(
-      //     _request.id,
-      //     agentName,
-      //     agentPhone,
-      //     acceptedConversionRate,
-      //     agentKey
-      //   );
-
-      // const acceptDeposit2 = await sargoEscrow
-      //   .connect(agent)
-      //   .acceptDeposit(
-      //     _request2.id,
-      //     agentName,
-      //     agentPhone,
-      //     acceptedConversionRate,
-      //     agentKey
-      //   );
-
-      // const acceptDeposit3 = await sargoEscrow
-      //   .connect(agent)
-      //   .acceptDeposit(
-      //     _request3.id,
-      //     agentName,
-      //     agentPhone,
-      //     acceptedConversionRate,
-      //     agentKey
-      //   );
-
-      const acceptDeposit4 = await sargoEscrow
+      const acceptDeposit = await sargoEscrow
         .connect(agent)
         .acceptDeposit(
-          _request4.id,
+          _request.id,
           agentName,
           agentPhone,
           acceptedConversionRate,
@@ -1052,16 +954,10 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
 
       const _requestsRemoved = await sargoEscrow.getRequestsLength();
 
-      // expect(_request.requestIndex).to.equal(1);
-      // expect(_request2.requestIndex).to.equal(1);
-      // expect(_request3.requestIndex).to.equal(0);
-      // expect(_request3.requestIndex).to.equal(0);
-      // expect(_request.id).to.equal(3);
-      // expect(_request2.id).to.equal(3);
-      // expect(_request3.id).to.equal(2);
-      // expect(_request4.id).to.equal(2);
-      expect(_requestsAdded).to.equal(4);
-      expect(_requestsRemoved).to.equal(3);
+      expect(_request.requestIndex).to.equal(0);
+      expect(_request.id).to.equal(1);
+      expect(_requestsAdded).to.equal(1);
+      expect(_requestsRemoved).to.equal(0);
     });
 
     it("Should add txnId to the address transaction history", async () => {

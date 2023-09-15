@@ -4,21 +4,10 @@ const { ethers, upgrades } = require("hardhat");
 const { BigNumber } = require("ethers");
 require("dotenv").config();
 
-/* 
-//TODO: get deposit requests count
-//TODO: get withdraw requests count
-//TODO: get transactions count by status
-//TODO: get completed transactions count
-
 //TODO: test pausable
 //TODO: test access control
-//TODO: test nonReentrant
 //TODO: test invalid cases
-
 //TODO: test upgradeable
-//TODO: test encription
-//TODO: test fees contract 
-*/
 
 describe("==SARGO ESCROW TRANSFER TESTS ================================", () => {
   async function deployEscrowFixture() {
@@ -85,21 +74,6 @@ describe("==SARGO ESCROW TRANSFER TESTS ================================", () =>
 
     await sargoEscrow.waitForDeployment();
 
-    //Earn contract
-    // const SargoEarn = await ethers.getContractFactory("SargoEarn");
-    // const sargoEarn = await upgrades.deployProxy(
-    //   SargoEarn,
-    //   [await sargoEscrow.getAddress()],
-    //   {
-    //     kind: "uups",
-    //   }
-    // );
-    // await sargoEarn.waitForDeployment();
-
-    //TODO: Make contract calls for testing
-
-    //--
-
     return {
       SargoFee,
       sargoFee,
@@ -128,9 +102,6 @@ describe("==SARGO ESCROW TRANSFER TESTS ================================", () =>
       paymentMethod,
       clientKey,
       agentKey,
-      //SargoEarn,
-      //sargoEarn,
-      //
     };
   }
 
