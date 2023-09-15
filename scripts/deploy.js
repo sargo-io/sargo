@@ -5,6 +5,7 @@ async function main() {
   const CELO_CUSD_TOKEN_ADDRESS = process.env.CELO_CUSD_TOKEN_ADDRESS;
   const SARGO_TREASURY_ADDRESS = process.env.SARGO_TREASURY_ADDRESS;
   const SARGO_ORDERS_FEE_PERCENT = process.env.SARGO_ORDERS_FEE_PERCENT;
+  const SARGO_TRANSFER_FEE_PERCENT = process.env.SARGO_TRANSFER_FEE_PERCENT;
 
   if (network.name === "hardhat") {
     console.warn(
@@ -14,29 +15,32 @@ async function main() {
     );
   }
 
-  /* 
-  
-  address _tokenAddress,
-        address _treasuryAddress,
-        address _feeAddress,
-        address _earnAddress
-
-  */
-
-  //TODO: deploy fee and earn addresses
-  const SARGO_FEE_ADDRESS = "";
-  const SARGO_EARN_ADDRESS = "";
-
-  const SargoEscrow = await ethers.getContractFactory("SargoEscrow");
-  const sargoEscrow = await SargoEscrow.deploy(
-    CELO_CUSD_TOKEN_ADDRESS,
-    SARGO_TREASURY_ADDRESS,
-    SARGO_FEE_ADDRESS,
-    SARGO_EARN_ADDRESS
+  /// -- Start Fee contract deployment --
+  const SargoFee = await ethers.getContractFactory("SargoFee");
+  const sargoFee = await upgrades.deployProxy(
+    SargoFee,
+    [SARGO_ORDERS_FEE_PERCENT, SARGO_TRANSFER_FEE_PERCENT],
+    {
+      kind: "uups",
+    }
   );
-  await sargoEscrow.deployed();
+  await sargoFee.waitForDeployment();
+  const SARGO_FEE_ADDRESS = await sargoFee.getAddress();
+  /// -- End Fee contract deployment --
 
-  console.log("SargoEscrow deployed to: ", sargoEscrow.address);
+  /// -- Start Escrow contract deployment --
+  const SargoEscrow = await ethers.getContractFactory("SargoEscrow");
+  const sargoEscrow = await upgrades.deployProxy(
+    SargoEscrow,
+    [CELO_CUSD_TOKEN_ADDRESS, SARGO_TREASURY_ADDRESS, SARGO_FEE_ADDRESS],
+    { kind: "uups" }
+  );
+  await sargoEscrow.waitForDeployment();
+  const SARGO_ESCROW_ADDRESS = await sargoEscrow.getAddress();
+  /// -- End Escrow contract deployment --
+
+  console.log("SargoFee deployed to: ", SARGO_FEE_ADDRESS);
+  console.log("SargoEscrow deployed to: ", SARGO_ESCROW_ADDRESS);
 }
 
 main()

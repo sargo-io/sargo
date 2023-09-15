@@ -6,6 +6,8 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./SargoBase.sol";
 
+//TODO: To be used in the future
+
 /**
  * @title SargoEarn
  * @dev Maintain address earnings summary
