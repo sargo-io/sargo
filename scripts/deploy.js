@@ -16,10 +16,19 @@ async function main() {
   }
 
   /// -- Start Fee contract deployment --
+  const ordersFeePerc = ethers.parseUnits(
+    process.env.SARGO_ORDERS_FEE_PERCENT,
+    "ether"
+  );
+  const transferFeePerc = ethers.parseUnits(
+    process.env.SARGO_TRANSFER_FEE_PERCENT,
+    "ether"
+  );
+
   const SargoFee = await ethers.getContractFactory("SargoFee");
   const sargoFee = await upgrades.deployProxy(
     SargoFee,
-    [SARGO_ORDERS_FEE_PERCENT, SARGO_TRANSFER_FEE_PERCENT],
+    [ordersFeePerc, transferFeePerc],
     {
       kind: "uups",
     }
