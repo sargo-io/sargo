@@ -16,12 +16,9 @@ async function main() {
   }
 
   /// -- Start Fee contract deployment --
-  const ordersFeePerc = ethers.parseUnits(
-    process.env.SARGO_ORDERS_FEE_PERCENT,
-    "ether"
-  );
+  const ordersFeePerc = ethers.parseUnits(SARGO_ORDERS_FEE_PERCENT, "ether");
   const transferFeePerc = ethers.parseUnits(
-    process.env.SARGO_TRANSFER_FEE_PERCENT,
+    SARGO_TRANSFER_FEE_PERCENT,
     "ether"
   );
 
