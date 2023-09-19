@@ -18,19 +18,35 @@ describe("==SARGO FEES TESTS ================================", () => {
       "ether"
     );
 
+    const agentRate = ethers.parseUnits(
+      process.env.SARGO_AGENT_EARNING_PERCENT,
+      0
+    );
+    const treasuryRate = ethers.parseUnits(
+      process.env.SARGO_TREASURY_EARNING_PERCENT,
+      0
+    );
+
     const agentFee = ethers.parseUnits("0.5", "ether");
     const treasuryFee = ethers.parseUnits("0.5", "ether");
     const transferFee = ethers.parseUnits("0.01", "ether");
     const SargoFee = await ethers.getContractFactory("SargoFee");
-    const sargoFee = await upgrades.deployProxy(
+    let sargoFee = await upgrades.deployProxy(
       SargoFee,
-      [ordersFeePerc, transferFeePerc],
+      [ordersFeePerc, transferFeePerc, agentRate, treasuryRate],
       {
         kind: "uups",
       }
     );
 
     await sargoFee.waitForDeployment();
+
+    //Test upgradeable
+    // const SargoFee_v0_1_0 = await ethers.getContractFactory("SargoFee_v0_1_0");
+    // sargoFee = await upgrades.upgradeProxy(
+    //   await sargoFee.getAddress(),
+    //   SargoFee_v0_1_0
+    // );
 
     return {
       owner,

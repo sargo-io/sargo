@@ -4,6 +4,7 @@ pragma solidity ^0.8.17;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "hardhat/console.sol";
 
 /**
  * @title SargoFee
@@ -12,18 +13,19 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 contract SargoFee is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     uint256 public ordersFeePerc;
     uint256 public transferFeePerc;
-    uint256 public ordersFee;
-    uint256 public agentFee;
-    uint256 public treasuryFee;
-    uint256 public transferFee;
+    uint256 public agentFeeRate;
+    uint256 public treasuryFeeRate;
+    uint256 public transferFeeRate;
 
     function initialize(
         uint256 _ordersFeePerc,
-        uint256 _transferFeePerc
+        uint256 _transferFeePerc,
+        uint256 _agentRate,
+        uint256 _treasuryRate
     ) public initializer {
         __Ownable_init();
         __UUPSUpgradeable_init();
-        setFees(_ordersFeePerc, _transferFeePerc);
+        setFees(_ordersFeePerc, _transferFeePerc, _agentRate, _treasuryRate);
     }
 
     function _authorizeUpgrade(
@@ -46,30 +48,34 @@ contract SargoFee is Initializable, UUPSUpgradeable, OwnableUpgradeable {
      **/
     function setFees(
         uint256 _ordersFeePerc,
-        uint256 _transferFeePerc
+        uint256 _transferFeePerc,
+        uint256 _agentRate,
+        uint256 _treasuryRate
     ) public onlyOwner {
+        console.log(_agentRate + _treasuryRate);
         require(_ordersFeePerc > 0, "Order fee");
         require(_transferFeePerc > 0, "Transfer fee");
+        require(_agentRate + _treasuryRate == 100, "Invalid rates split");
 
         ordersFeePerc = _ordersFeePerc;
         transferFeePerc = _transferFeePerc;
 
-        agentFee = (ordersFeePerc * 50) / 100;
-        treasuryFee = (ordersFeePerc * 50) / 100;
-        transferFee = (_transferFeePerc / 100);
+        agentFeeRate = (ordersFeePerc * _agentRate) / 100;
+        treasuryFeeRate = (ordersFeePerc * _treasuryRate) / 100;
+        transferFeeRate = (_transferFeePerc / 100);
 
         require(
-            agentFee + treasuryFee == _ordersFeePerc,
-            "Orders fees mismatch"
+            agentFeeRate + treasuryFeeRate == _ordersFeePerc,
+            "Orders fee rates mismatch"
         );
-        require(transferFee > 0, "Transfer fees mismatch");
+        require(transferFeeRate > 0, "Transfer fee rate mismatch");
 
         emit FeesSet(
             ordersFeePerc,
             transferFeePerc,
-            agentFee,
-            treasuryFee,
-            transferFee
+            agentFeeRate,
+            treasuryFeeRate,
+            transferFeeRate
         );
     }
 }

@@ -230,10 +230,12 @@ contract SargoEscrow is
 
         _txn.currencyCode = _currencyCode;
         _txn.conversionRate = _conversionRate;
-        _txn.totalAmount = _amount + (getTreasuryFee() + getAgentFee());
+        _txn.totalAmount =
+            _amount +
+            (getTreasuryFee(_amount) + getAgentFee(_amount));
         _txn.netAmount = _amount;
-        _txn.agentFee = getAgentFee();
-        _txn.treasuryFee = getTreasuryFee();
+        _txn.agentFee = getAgentFee(_amount);
+        _txn.treasuryFee = getTreasuryFee(_amount);
         _txn.agentApproved = false;
         _txn.clientApproved = false;
         _txn.paymentMethod = _paymentMethod;
@@ -567,17 +569,17 @@ contract SargoEscrow is
     }
 
     /**
-     * @dev Get the agent commision fee
+     * @dev Compute the agent fee
      */
-    function getAgentFee() public view returns (uint256) {
-        return SargoFee(feeAddress).agentFee();
+    function getAgentFee(uint256 _amount) public view returns (uint256) {
+        return _amount * (SargoFee(feeAddress).agentFeeRate() / 100);
     }
 
     /**
-     * @dev Get treasury fee
+     * @dev Compute treasury fee
      */
-    function getTreasuryFee() public view returns (uint256) {
-        return SargoFee(feeAddress).treasuryFee();
+    function getTreasuryFee(uint256 _amount) public view returns (uint256) {
+        return _amount * (SargoFee(feeAddress).treasuryFeeRate() / 100);
     }
 
     /**
