@@ -6,9 +6,6 @@ async function main() {
   const SARGO_TREASURY_ADDRESS = process.env.SARGO_TREASURY_ADDRESS;
   const SARGO_ORDERS_FEE_PERCENT = process.env.SARGO_ORDERS_FEE_PERCENT;
   const SARGO_TRANSFER_FEE_PERCENT = process.env.SARGO_TRANSFER_FEE_PERCENT;
-  const SARGO_AGENT_EARNING_PERCENT = process.env.SARGO_AGENT_EARNING_PERCENT;
-  const SARGO_TREASURY_EARNING_PERCENT =
-    process.env.SARGO_TREASURY_EARNING_PERCENT;
 
   if (network.name === "hardhat") {
     console.warn(
@@ -25,16 +22,10 @@ async function main() {
     "ether"
   );
 
-  const agentRate = ethers.parseUnits(SARGO_AGENT_EARNING_PERCENT, "ether");
-  const treasuryRate = ethers.parseUnits(
-    SARGO_TREASURY_EARNING_PERCENT,
-    "ether"
-  );
-
   const SargoFee = await ethers.getContractFactory("SargoFee");
   const sargoFee = await upgrades.deployProxy(
     SargoFee,
-    [ordersFeePerc, transferFeePerc, agentRate, treasuryRate],
+    [ordersFeePerc, transferFeePerc],
     {
       kind: "uups",
     }

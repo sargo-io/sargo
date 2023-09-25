@@ -59,7 +59,7 @@ contract SargoFee is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
         require(
             agentFeeRate + treasuryFeeRate == _ordersFeePerc,
-            "Orders fee rates mismatch"
+            "Fee rates mismatch"
         );
         require(transferFeeRate > 0, "Transfer fee rate mismatch");
 
