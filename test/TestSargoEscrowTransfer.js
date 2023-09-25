@@ -16,7 +16,8 @@ describe("==SARGO ESCROW TRANSFER TESTS ================================", () =>
     const supply = 1000;
     const initialSupply = ethers.parseUnits(supply.toString(), "ether");
     const ordersFeePerc = ethers.parseUnits(
-      process.env.SARGO_ORDERS_FEE_PERCENT
+      process.env.SARGO_ORDERS_FEE_PERCENT,
+      "ether"
     );
     const transferFeePerc = ethers.parseUnits(
       process.env.SARGO_TRANSFER_FEE_PERCENT,
