@@ -7,7 +7,6 @@ require("dotenv").config();
 //TODO: test pausable
 //TODO: test access control
 //TODO: test invalid cases
-//TODO: test upgradeable
 
 describe("==SARGO ESCROW TRANSFER TESTS ================================", () => {
   async function deployEscrowFixture() {
@@ -17,15 +16,25 @@ describe("==SARGO ESCROW TRANSFER TESTS ================================", () =>
     const supply = 1000;
     const initialSupply = ethers.parseUnits(supply.toString(), "ether");
     const ordersFeePerc = ethers.parseUnits(
-      process.env.SARGO_ORDERS_FEE_PERCENT
+      process.env.SARGO_ORDERS_FEE_PERCENT,
+      "ether"
     );
     const transferFeePerc = ethers.parseUnits(
       process.env.SARGO_TRANSFER_FEE_PERCENT,
       "ether"
     );
-    const agentFee = ethers.parseUnits("0.5", "ether");
-    const treasuryFee = ethers.parseUnits("0.5", "ether");
+    const agentRate = ethers.parseUnits(
+      process.env.SARGO_AGENT_EARNING_PERCENT,
+      "ether"
+    );
+    const treasuryRate = ethers.parseUnits(
+      process.env.SARGO_TREASURY_EARNING_PERCENT,
+      "ether"
+    );
+
     const amount = ethers.parseUnits("5", "ether");
+    const agentFee = ethers.parseUnits("0.025", "ether");
+    const treasuryFee = ethers.parseUnits("0.025", "ether");
     const fundAmount = ethers.parseUnits("7", "ether");
     const currencyCode = "KES";
     const conversionRate = ethers.parseUnits("140", "ether");
@@ -51,7 +60,7 @@ describe("==SARGO ESCROW TRANSFER TESTS ================================", () =>
 
     //Fee contract
     const SargoFee = await ethers.getContractFactory("SargoFee");
-    const sargoFee = await upgrades.deployProxy(
+    let sargoFee = await upgrades.deployProxy(
       SargoFee,
       [ordersFeePerc, transferFeePerc],
       {
@@ -62,7 +71,7 @@ describe("==SARGO ESCROW TRANSFER TESTS ================================", () =>
 
     //Escrow contract
     const SargoEscrow = await ethers.getContractFactory("SargoEscrow");
-    const sargoEscrow = await upgrades.deployProxy(
+    let sargoEscrow = await upgrades.deployProxy(
       SargoEscrow,
       [
         await sargoToken.getAddress(),
@@ -73,6 +82,22 @@ describe("==SARGO ESCROW TRANSFER TESTS ================================", () =>
     );
 
     await sargoEscrow.waitForDeployment();
+
+    //Test upgradeable
+    // const SargoFee_v0_1_0 = await ethers.getContractFactory("SargoFee_v0_1_0");
+    // sargoFee = await upgrades.upgradeProxy(
+    //   await sargoFee.getAddress(),
+    //   SargoFee_v0_1_0
+    // );
+
+    //Test upgradeable
+    // const SargoEscrow_v0_1_0 = await ethers.getContractFactory(
+    //   "SargoEscrow_v0_1_0"
+    // );
+    // sargoEscrow = await upgrades.upgradeProxy(
+    //   await sargoEscrow.getAddress(),
+    //   SargoEscrow_v0_1_0
+    // );
 
     return {
       SargoFee,
@@ -141,15 +166,17 @@ describe("==SARGO ESCROW TRANSFER TESTS ================================", () =>
 
     //TODO: get fee for all tx types
     it("Should get the right agent fee", async () => {
-      const { sargoEscrow, agentFee } = await loadFixture(deployEscrowFixture);
-      expect(await sargoEscrow.getAgentFee()).to.equal(agentFee);
+      const { sargoEscrow, amount, agentFee } = await loadFixture(
+        deployEscrowFixture
+      );
+      expect(await sargoEscrow.getAgentFee(amount)).to.equal(agentFee);
     });
 
     it("Should get the right treasury fee", async () => {
-      const { sargoEscrow, treasuryFee } = await loadFixture(
+      const { sargoEscrow, amount, treasuryFee } = await loadFixture(
         deployEscrowFixture
       );
-      expect(await sargoEscrow.getTreasuryFee()).to.equal(treasuryFee);
+      expect(await sargoEscrow.getTreasuryFee(amount)).to.equal(treasuryFee);
     });
   });
 
