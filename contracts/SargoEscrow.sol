@@ -572,14 +572,15 @@ contract SargoEscrow is
      * @dev Compute the agent fee
      */
     function getAgentFee(uint256 _amount) public view returns (uint256) {
-        return _amount * (SargoFee(feeAddress).agentFeeRate() / 100);
+        return (_amount * SargoFee(feeAddress).agentFeeRate()) / 1 ether / 100;
     }
 
     /**
      * @dev Compute treasury fee
      */
     function getTreasuryFee(uint256 _amount) public view returns (uint256) {
-        return _amount * (SargoFee(feeAddress).treasuryFeeRate() / 100);
+        return
+            (_amount * SargoFee(feeAddress).treasuryFeeRate()) / 1 ether / 100;
     }
 
     /**
@@ -596,8 +597,6 @@ contract SargoEscrow is
      * @notice returns the number of transactions on the requests feed
      **/
     function getRequestsLength() public view returns (uint256) {
-        console.log(requests[Status.REQUEST].length);
-
         return requests[Status.REQUEST].length;
     }
 

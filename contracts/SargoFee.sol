@@ -19,13 +19,11 @@ contract SargoFee is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
     function initialize(
         uint256 _ordersFeePerc,
-        uint256 _transferFeePerc,
-        uint256 _agentRate,
-        uint256 _treasuryRate
+        uint256 _transferFeePerc
     ) public initializer {
         __Ownable_init();
         __UUPSUpgradeable_init();
-        setFees(_ordersFeePerc, _transferFeePerc, _agentRate, _treasuryRate);
+        setFees(_ordersFeePerc, _transferFeePerc);
     }
 
     function _authorizeUpgrade(
@@ -48,21 +46,16 @@ contract SargoFee is Initializable, UUPSUpgradeable, OwnableUpgradeable {
      **/
     function setFees(
         uint256 _ordersFeePerc,
-        uint256 _transferFeePerc,
-        uint256 _agentRate,
-        uint256 _treasuryRate
+        uint256 _transferFeePerc
     ) public onlyOwner {
-        console.log(_agentRate + _treasuryRate);
         require(_ordersFeePerc > 0, "Order fee");
         require(_transferFeePerc > 0, "Transfer fee");
-        require(_agentRate + _treasuryRate == 100, "Invalid rates split");
 
         ordersFeePerc = _ordersFeePerc;
         transferFeePerc = _transferFeePerc;
-
-        agentFeeRate = (ordersFeePerc * _agentRate) / 100;
-        treasuryFeeRate = (ordersFeePerc * _treasuryRate) / 100;
-        transferFeeRate = (_transferFeePerc / 100);
+        agentFeeRate = (ordersFeePerc * 50) / 100;
+        treasuryFeeRate = (ordersFeePerc * 50) / 100;
+        transferFeeRate = _transferFeePerc / 100;
 
         require(
             agentFeeRate + treasuryFeeRate == _ordersFeePerc,

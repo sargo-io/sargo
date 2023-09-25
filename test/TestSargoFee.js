@@ -20,11 +20,11 @@ describe("==SARGO FEES TESTS ================================", () => {
 
     const agentRate = ethers.parseUnits(
       process.env.SARGO_AGENT_EARNING_PERCENT,
-      0
+      "ether"
     );
     const treasuryRate = ethers.parseUnits(
       process.env.SARGO_TREASURY_EARNING_PERCENT,
-      0
+      "ether"
     );
 
     const agentFee = ethers.parseUnits("0.5", "ether");
@@ -33,7 +33,7 @@ describe("==SARGO FEES TESTS ================================", () => {
     const SargoFee = await ethers.getContractFactory("SargoFee");
     let sargoFee = await upgrades.deployProxy(
       SargoFee,
-      [ordersFeePerc, transferFeePerc, agentRate, treasuryRate],
+      [ordersFeePerc, transferFeePerc],
       {
         kind: "uups",
       }
@@ -78,39 +78,39 @@ describe("==SARGO FEES TESTS ================================", () => {
 
     it("Should check if the agent fee is set", async () => {
       const { sargoFee } = await loadFixture(deployFeesFixture);
-      expect(await sargoFee.agentFee()).to.gt(0);
+      expect(await sargoFee.agentFeeRate()).to.gt(0);
     });
 
     it("Should get the agent fee", async () => {
       const { sargoFee, agentFee } = await loadFixture(deployFeesFixture);
-      expect(await sargoFee.agentFee()).to.equal(agentFee);
+      expect(await sargoFee.agentFeeRate()).to.equal(agentFee);
     });
 
     it("Should check if the treasury fee is set", async () => {
       const { sargoFee } = await loadFixture(deployFeesFixture);
-      expect(await sargoFee.treasuryFee()).to.gt(0);
+      expect(await sargoFee.treasuryFeeRate()).to.gt(0);
     });
 
     it("Should get the treasury fee", async () => {
       const { sargoFee, treasuryFee } = await loadFixture(deployFeesFixture);
-      expect(await sargoFee.treasuryFee()).to.equal(treasuryFee);
+      expect(await sargoFee.treasuryFeeRate()).to.equal(treasuryFee);
     });
 
     it("Should check if the tranfer fee is set", async () => {
       const { sargoFee } = await loadFixture(deployFeesFixture);
-      expect(await sargoFee.transferFee()).to.gt(0);
+      expect(await sargoFee.transferFeeRate()).to.gt(0);
     });
 
     it("Should get the transfer fee", async () => {
       const { sargoFee, transferFee } = await loadFixture(deployFeesFixture);
-      expect(await sargoFee.transferFee()).to.equal(transferFee);
+      expect(await sargoFee.transferFeeRate()).to.equal(transferFee);
     });
 
     it("Should ensure the the sum of all orders fees do not exceed the total transaction fee", async () => {
       const { sargoFee, ordersFeePerc } = await loadFixture(deployFeesFixture);
 
-      const _agentFee = await sargoFee.agentFee();
-      const _treasuryFee = await sargoFee.treasuryFee();
+      const _agentFee = await sargoFee.agentFeeRate();
+      const _treasuryFee = await sargoFee.treasuryFeeRate();
 
       expect(await sargoFee.ordersFeePerc()).to.equal(ordersFeePerc);
       expect(await sargoFee.ordersFeePerc()).to.equal(_agentFee + _treasuryFee);
@@ -121,10 +121,10 @@ describe("==SARGO FEES TESTS ================================", () => {
         deployFeesFixture
       );
 
-      const _transferFee = await sargoFee.transferFee();
+      const _transferFee = await sargoFee.transferFeeRate();
 
       expect(await sargoFee.transferFeePerc()).to.equal(transferFeePerc);
-      expect(await sargoFee.transferFee()).to.lte(transferFeePerc);
+      expect(await sargoFee.transferFeeRate()).to.lte(transferFeePerc);
     });
 
     //TODO: Test for all transaction types
