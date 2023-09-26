@@ -23,14 +23,6 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
       process.env.SARGO_TRANSFER_FEE_PERCENT,
       "ether"
     );
-    const agentRate = ethers.parseUnits(
-      process.env.SARGO_AGENT_EARNING_PERCENT,
-      "ether"
-    );
-    const treasuryRate = ethers.parseUnits(
-      process.env.SARGO_TREASURY_EARNING_PERCENT,
-      "ether"
-    );
 
     const amount = ethers.parseUnits("5", "ether");
     const agentFee = ethers.parseUnits("0.025", "ether");

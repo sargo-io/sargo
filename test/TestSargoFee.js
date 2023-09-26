@@ -18,15 +18,6 @@ describe("==SARGO FEES TESTS ================================", () => {
       "ether"
     );
 
-    const agentRate = ethers.parseUnits(
-      process.env.SARGO_AGENT_EARNING_PERCENT,
-      "ether"
-    );
-    const treasuryRate = ethers.parseUnits(
-      process.env.SARGO_TREASURY_EARNING_PERCENT,
-      "ether"
-    );
-
     const agentFee = ethers.parseUnits("0.5", "ether");
     const treasuryFee = ethers.parseUnits("0.5", "ether");
     const transferFee = ethers.parseUnits("0.01", "ether");
