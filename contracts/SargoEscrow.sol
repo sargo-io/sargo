@@ -36,6 +36,7 @@ contract SargoEscrow is
     mapping(address => Earning) private earnings;
     mapping(Status => uint256[]) public requests;
     mapping(address => uint256[]) public acountHistory;
+    mapping(Status => uint256[]) public paired;
 
     function initialize(
         address _tokenAddress,
@@ -114,7 +115,6 @@ contract SargoEscrow is
         Transaction txn,
         string resolution
     );
-
     event Transfer(
         uint256 indexed id,
         uint256 indexed timestamp,
@@ -161,7 +161,7 @@ contract SargoEscrow is
     }
 
     /**
-     * @dev Remove a txnId from the requests list by index when transaction is accepted
+     * @dev Remove a txnId from the requests list by index when transaction is paired or cancelled
      **/
     function _removeFromRequests(uint256 _index) private {
         requests[Status.REQUEST][_index] = requests[Status.REQUEST][
@@ -174,6 +174,33 @@ contract SargoEscrow is
         _txn.requestIndex = _index;
 
         requests[Status.REQUEST].pop();
+    }
+
+    /**
+     * @dev Add a transaction id into the paired transactions list
+     * @notice All txnIds on the paired list are made available on the current orders feed
+     **/
+    function _addToPaired(
+        uint256 _txnId
+    ) private pairedOnly(_txnId) returns (uint256) {
+        paired[Status.PAIRED].push(_txnId);
+
+        return paired[Status.PAIRED].length - 1;
+    }
+
+    /**
+     * @dev Remove a txnId from the paired list by index when transaction is
+     * completed, cancelled, disputed,
+     **/
+    function _removeFromPaired(uint256 _index) private {
+        paired[Status.PAIRED][_index] = paired[Status.PAIRED][
+            paired[Status.PAIRED].length - 1
+        ];
+
+        Transaction storage _txn = transactions[paired[Status.PAIRED][_index]];
+        _txn.pairedIndex = _index;
+
+        paired[Status.PAIRED].pop();
     }
 
     /**
@@ -312,6 +339,8 @@ contract SargoEscrow is
 
         _txn.status = Status.COMPLETED;
 
+        _removeFromPaired(_txn.requestIndex);
+
         emit TransactionCompleted(_txn.id, _txn.timestamp, _txn);
     }
 
@@ -420,6 +449,7 @@ contract SargoEscrow is
         );
 
         _removeFromRequests(_txn.requestIndex);
+        _txn.pairedIndex = _addToPaired(_txn.id);
         _addToHistory(msg.sender, _txn.id);
 
         emit RequestAccepted(_txn.id, _txn.timestamp, _txn);
@@ -466,6 +496,7 @@ contract SargoEscrow is
         );
 
         _removeFromRequests(_txn.requestIndex);
+        _txn.pairedIndex = _addToPaired(_txn.id);
         _addToHistory(msg.sender, _txn.id);
 
         emit RequestAccepted(_txn.id, _txn.timestamp, _txn);
@@ -539,6 +570,14 @@ contract SargoEscrow is
         string calldata _reason
     ) public pairedOnly(_txnId) whenNotPaused nonReentrant {
         Transaction storage _txn = transactions[_txnId];
+
+        require(
+            _txn.clientAccount == msg.sender ||
+                _txn.agentAccount == msg.sender ||
+                owner() == msg.sender,
+            "Authorized accounts"
+        );
+
         _txn.status = Status.DISPUTED;
         emit TransactionDisputed(_txn.id, _txn.timestamp, _txn, _reason);
     }
@@ -598,6 +637,14 @@ contract SargoEscrow is
      **/
     function getRequestsLength() public view returns (uint256) {
         return requests[Status.REQUEST].length;
+    }
+
+    /**
+     * @dev Get the length of transactions in paired state
+     * @notice returns the number of transactions on the current orders feed
+     **/
+    function getPairedLength() public view returns (uint256) {
+        return paired[Status.PAIRED].length;
     }
 
     /**

@@ -2,11 +2,6 @@ require("dotenv").config();
 const { ethers, upgrades } = require("hardhat");
 
 async function main() {
-  const CELO_CUSD_TOKEN_ADDRESS = process.env.CELO_CUSD_TOKEN_ADDRESS;
-  const SARGO_TREASURY_ADDRESS = process.env.SARGO_TREASURY_ADDRESS;
-  const SARGO_ORDERS_FEE_PERCENT = process.env.SARGO_ORDERS_FEE_PERCENT;
-  const SARGO_TRANSFER_FEE_PERCENT = process.env.SARGO_TRANSFER_FEE_PERCENT;
-
   if (network.name === "hardhat") {
     console.warn(
       "You are trying to deploy a contract to the Hardhat Network, which " +
@@ -15,38 +10,25 @@ async function main() {
     );
   }
 
-  /// -- Start Fee contract upgrade --
-  const SARGO_FEE_DEPLOYED_ADDRESS =
-    "0x9E4C399fbd882454e281912ffC5380883fDA8eE3";
-  const ordersFeePerc = ethers.parseUnits(SARGO_ORDERS_FEE_PERCENT, "ether");
-  const transferFeePerc = ethers.parseUnits(
-    SARGO_TRANSFER_FEE_PERCENT,
-    "ether"
+  /** -- Start Fee contract upgrade -- */
+  const SargoFee = await ethers.getContractFactory("SargoFee");
+  const sargoFee = await upgrades.upgradeProxy(
+    "0x6984D58E27D043c262fa53D61d8B9bd6BA0Ccf1E",
+    SargoFee
   );
 
-  const SargoFee_v0_1_0 = await ethers.getContractFactory("SargoFee_v0_1_0");
-  const sargoFee_v0_1_0 = await upgrades.upgradeProxy(
-    SARGO_FEE_DEPLOYED_ADDRESS,
-    [ordersFeePerc, transferFeePerc],
-    SargoFee_v0_1_0
-  );
-  /// -- End Fee contract upgrade --
+  //console.log("SargoFee upgraded: ", await sargoFee.getAddress());
+  /** -- End Fee contract upgrade -- */
 
-  /// -- Start Escrow contract upgrade --
-  const SARGO_ESCROW_DEPLOYED_ADDRESS =
-    "0x696d4cCdfFE80f8Ac4fD8917a90210dd6719166a";
-  const SargoEscrow_v0_1_0 = await ethers.getContractFactory(
-    "SargoEscrow_v0_1_0"
+  /** -- Start Escrow contract upgrade -- */
+  const SargoEscrow = await ethers.getContractFactory("SargoEscrow");
+  const sargoEscrow = await upgrades.upgradeProxy(
+    "0x7bDF32f21C4670ac05b32edde9857006C2bbfc3E",
+    SargoEscrow
   );
-  const sargoEscrow_v0_1_0 = await upgrades.upgradeProxy(
-    SARGO_ESCROW_DEPLOYED_ADDRESS,
-    [CELO_CUSD_TOKEN_ADDRESS, SARGO_TREASURY_ADDRESS, SARGO_FEE_ADDRESS],
-    SargoEscrow_v0_1_0
-  );
-  /// -- End Escrow contract upgrade --
 
-  console.log("SargoFee upgraded: ", await sargoFee_v0_1_0.getAddress());
-  console.log("SargoEscrow upgraded: ", await sargoEscrow_v0_1_0.getAddress());
+  console.log("SargoEscrow upgraded: ", await sargoEscrow.getAddress());
+  /** -- End Escrow contract upgrade -- */
 }
 
 main()

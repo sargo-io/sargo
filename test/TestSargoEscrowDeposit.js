@@ -203,6 +203,8 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
       const _totalAmount = amount + agentFee + treasuryFee;
       const _txFees = agentFee + treasuryFee;
       const _netAmount = _totalAmount - _txFees;
+      const _requests = await sargoEscrow.getRequestsLength();
+      const _txs = await sargoEscrow.getAcountHistoryLength(client.address);
 
       expect(_request.id).to.equal(1);
       expect(_request.refNumber).to.not.be.empty;
@@ -218,6 +220,8 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
       expect(_request.clientKey).to.not.be.empty;
       expect(_request.agentKey).to.be.empty;
       expect(await sargoEscrow.nextTxId()).to.equal(2);
+      expect(_requests).to.equal(1);
+      expect(_txs).to.equal(1);
     });
 
     it("Should emit deposit request initiated event", async function () {
@@ -342,6 +346,9 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
           agentKey
         );
       const _accepted = await sargoEscrow.getTransactionById(_request.id);
+      const _paired = await sargoEscrow.getPairedLength();
+      const _requestsRemoved = await sargoEscrow.getRequestsLength();
+
       expect(_accepted.id).to.equal(1);
       expect(_accepted.agentAccount).to.equal(agent.address);
       expect(_accepted.clientAccount).to.equal(client.address);
@@ -357,6 +364,9 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
       expect(_accepted.clientApproved).to.equal(false);
       expect(_accepted.clientKey).to.not.be.empty;
       expect(_accepted.agentKey).to.not.be.empty;
+      expect(_request.requestIndex).to.equal(0);
+      expect(_requestsRemoved).to.equal(0);
+      expect(_paired).to.equal(1);
 
       await expect(depositRequest).to.emit(sargoEscrow, "TransactionInitiated");
       //.withArgs(_request.id, _request.timestamp, _request);
@@ -498,6 +508,7 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         _agentBalance - amount - agentFee - treasuryFee + agentFee;
       const treasuryExpected = _treasuryBalance + treasuryFee;
       const escrowExpected = _escrowBalance - amount - agentFee - treasuryFee;
+      const _pairedRemoved = await sargoEscrow.getPairedLength();
 
       expect(_agentConfirmed.id).to.equal(1);
       expect(_agentConfirmed.txType).to.equal(0);
@@ -519,6 +530,8 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
 
       const _earnings = await sargoEscrow.getEarnings(agent.address);
       expect(_earnings.totalEarned).to.equal(agentFee);
+      expect(_agentConfirmed.pairedIndex).to.equal(0);
+      expect(_pairedRemoved).to.equal(0);
 
       await expect(clientConfirmed).to.emit(sargoEscrow, "ClientConfirmed");
       // .withArgs(
@@ -892,123 +905,6 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
   });
 
   describe("Utility transactions", function () {
-    it("Should add txnId to the requests list", async () => {
-      const {
-        sargoEscrow,
-        client,
-        amount,
-        currencyCode,
-        conversionRate,
-        paymentMethod,
-        clientName,
-        clientPhone,
-        clientKey,
-      } = await loadFixture(deployEscrowFixture);
-      const depositRequest = await sargoEscrow
-        .connect(client)
-        .initiateDeposit(
-          amount,
-          currencyCode,
-          conversionRate,
-          paymentMethod,
-          clientName,
-          clientPhone,
-          clientKey
-        );
-
-      const _requests = await sargoEscrow.getRequestsLength();
-
-      expect(_requests).to.equal(1);
-    });
-
-    it("Should remove txnId from the requests list", async () => {
-      const {
-        sargoEscrow,
-        sargoToken,
-        client,
-        agent,
-        amount,
-        fundAmount,
-        currencyCode,
-        conversionRate,
-        paymentMethod,
-        clientName,
-        clientPhone,
-        clientKey,
-        agentName,
-        agentPhone,
-        acceptedConversionRate,
-        agentKey,
-      } = await loadFixture(deployEscrowFixture);
-
-      const depositRequest = await sargoEscrow
-        .connect(client)
-        .initiateDeposit(
-          amount,
-          currencyCode,
-          conversionRate,
-          paymentMethod,
-          clientName,
-          clientPhone,
-          clientKey
-        );
-
-      const _request = await sargoEscrow.getTransactionById(1);
-      const _requestsAdded = await sargoEscrow.getRequestsLength();
-
-      await sargoToken.transfer(agent.address, fundAmount + fundAmount);
-      await sargoToken
-        .connect(agent)
-        .approve(await sargoEscrow.getAddress(), fundAmount + fundAmount);
-
-      const acceptDeposit = await sargoEscrow
-        .connect(agent)
-        .acceptDeposit(
-          _request.id,
-          agentName,
-          agentPhone,
-          acceptedConversionRate,
-          agentKey
-        );
-
-      const _requestsRemoved = await sargoEscrow.getRequestsLength();
-
-      expect(_request.requestIndex).to.equal(0);
-      expect(_request.id).to.equal(1);
-      expect(_requestsAdded).to.equal(1);
-      expect(_requestsRemoved).to.equal(0);
-    });
-
-    it("Should add txnId to the address transaction history", async () => {
-      const {
-        sargoEscrow,
-        client,
-        amount,
-        currencyCode,
-        conversionRate,
-        paymentMethod,
-        clientName,
-        clientPhone,
-        clientKey,
-      } = await loadFixture(deployEscrowFixture);
-
-      const depositRequest = await sargoEscrow
-        .connect(client)
-        .initiateDeposit(
-          amount,
-          currencyCode,
-          conversionRate,
-          paymentMethod,
-          clientName,
-          clientPhone,
-          clientKey
-        );
-
-      const _txs = await sargoEscrow.getAcountHistoryLength(client.address);
-
-      expect(_txs).to.equal(1);
-    });
-
     it("Should get the estimated gas price", async () => {});
 
     it("Should get all transactions", async () => {
