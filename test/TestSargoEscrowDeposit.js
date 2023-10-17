@@ -346,7 +346,7 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
           agentKey
         );
       const _accepted = await sargoEscrow.getTransactionById(_request.id);
-      const _paired = await sargoEscrow.getPairedLength();
+      const _paired = await sargoEscrow.getPairedLength(agent.address);
       const _requestsRemoved = await sargoEscrow.getRequestsLength();
 
       expect(_accepted.id).to.equal(1);
@@ -508,7 +508,12 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         _agentBalance - amount - agentFee - treasuryFee + agentFee;
       const treasuryExpected = _treasuryBalance + treasuryFee;
       const escrowExpected = _escrowBalance - amount - agentFee - treasuryFee;
-      const _pairedRemoved = await sargoEscrow.getPairedLength();
+      const _pairedClientRemoved = await sargoEscrow.getPairedLength(
+        client.address
+      );
+      const _pairedAgentRemoved = await sargoEscrow.getPairedLength(
+        agent.address
+      );
 
       expect(_agentConfirmed.id).to.equal(1);
       expect(_agentConfirmed.txType).to.equal(0);
@@ -531,7 +536,8 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
       const _earnings = await sargoEscrow.getEarnings(agent.address);
       expect(_earnings.totalEarned).to.equal(agentFee);
       expect(_agentConfirmed.pairedIndex).to.equal(0);
-      expect(_pairedRemoved).to.equal(0);
+      expect(_pairedClientRemoved).to.equal(0);
+      expect(_pairedAgentRemoved).to.equal(0);
 
       await expect(clientConfirmed).to.emit(sargoEscrow, "ClientConfirmed");
       // .withArgs(
@@ -582,6 +588,9 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         .connect(client)
         .cancelTransaction(_request.id, "reason");
       const _cancelled = await sargoEscrow.getTransactionById(_request.id);
+      const _pairedClientRemoved = await sargoEscrow.getPairedLength(
+        client.address
+      );
 
       expect(_cancelled.id).to.equal(1);
       expect(_cancelled.clientAccount).to.equal(client.address);
@@ -589,6 +598,7 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
       expect(_cancelled.status).to.equal(4);
       expect(_cancelled.agentApproved).to.equal(false);
       expect(_cancelled.clientApproved).to.equal(false);
+      expect(_pairedClientRemoved).to.equal(0);
 
       await expect(depositRequest).to.emit(sargoEscrow, "TransactionInitiated");
       //.withArgs(_request.id, _request.timestamp, _request);
@@ -905,6 +915,37 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
   });
 
   describe("Utility transactions", function () {
+    it("Should allow the owner to change transaction status", async () => {
+      const {
+        sargoEscrow,
+        client,
+        amount,
+        currencyCode,
+        conversionRate,
+        paymentMethod,
+        clientName,
+        clientPhone,
+        clientKey,
+      } = await loadFixture(deployEscrowFixture);
+
+      await sargoEscrow
+        .connect(client)
+        .initiateDeposit(
+          amount,
+          currencyCode,
+          conversionRate,
+          paymentMethod,
+          clientName,
+          clientPhone,
+          clientKey
+        );
+
+      const _request = await sargoEscrow.getTransactionById(1);
+      await sargoEscrow.transactionStatus(_request.id, 3);
+      const _statusChanged = await sargoEscrow.getTransactionById(1);
+      expect(_statusChanged.status).to.equal(3);
+    });
+
     it("Should get the estimated gas price", async () => {});
 
     it("Should get all transactions", async () => {
