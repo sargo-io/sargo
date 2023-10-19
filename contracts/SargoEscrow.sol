@@ -11,7 +11,6 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 
 import "./SargoBase.sol";
 import "./SargoFee.sol";
-import "hardhat/console.sol";
 
 /**
  * @title SargoEscrow
@@ -36,7 +35,7 @@ contract SargoEscrow is
     mapping(address => Earning) private earnings;
     mapping(Status => uint256[]) public requests;
     mapping(address => uint256[]) public acountHistory;
-    mapping(Status => uint256[]) public paired; //Deprecated mapping
+    mapping(Status => uint256[]) public paired;
     mapping(address => uint256[]) public pairing;
 
     function initialize(
@@ -199,15 +198,33 @@ contract SargoEscrow is
      * @dev Remove a txnId from the paired list by index when transaction is
      * completed,
      **/
-    function _removeFromPaired(address _address, uint256 _index) private {
-        pairing[_address][_index] = pairing[_address][
-            pairing[_address].length - 1
-        ];
+    function _removeFromPaired(uint256 _txnId) private {
+        Transaction storage _txn = transactions[_txnId];
 
-        //Transaction storage _txn = transactions[pairing[_address][_index]];
-        //_txn.pairedIndex = _index;
+        if (_txn.status == Status.REQUEST) {
+            if (_txn.txType == TransactionType.DEPOSIT) {
+                pairing[_txn.clientAccount][_txn.clientPairedIndex] = pairing[
+                    _txn.clientAccount
+                ][pairing[_txn.clientAccount].length - 1];
 
-        pairing[_address].pop();
+                pairing[_txn.clientAccount].pop();
+            } else if (_txn.txType == TransactionType.WITHDRAW) {
+                pairing[_txn.agentAccount][_txn.agentPairedIndex] = pairing[
+                    _txn.agentAccount
+                ][pairing[_txn.agentAccount].length - 1];
+
+                pairing[_txn.agentAccount].pop();
+            }
+        } else if (_txn.status == Status.PAIRED) {
+            pairing[_txn.clientAccount][_txn.clientPairedIndex] = pairing[
+                _txn.clientAccount
+            ][pairing[_txn.clientAccount].length - 1];
+            pairing[_txn.agentAccount][_txn.agentPairedIndex] = pairing[
+                _txn.agentAccount
+            ][pairing[_txn.agentAccount].length - 1];
+            pairing[_txn.clientAccount].pop();
+            pairing[_txn.agentAccount].pop();
+        }
     }
 
     /**
@@ -249,13 +266,13 @@ contract SargoEscrow is
             _txn.account.clientName = _name;
             _txn.account.clientPhoneNumber = _phoneNumber;
             _txn.requestIndex = _addToRequests(_txn.id);
-            _txn.pairedIndex = _addToPairing(msg.sender, _txn.id);
+            _txn.clientPairedIndex = _addToPairing(_txn.clientAccount, _txn.id);
         } else if (_txType == TransactionType.WITHDRAW) {
             _txn.agentAccount = msg.sender;
             _txn.account.agentName = _name;
             _txn.account.agentPhoneNumber = _phoneNumber;
             _txn.requestIndex = _addToRequests(_txn.id);
-            _txn.pairedIndex = _addToPairing(msg.sender, _txn.id);
+            _txn.agentPairedIndex = _addToPairing(_txn.agentAccount, _txn.id);
         } else if (_txType == TransactionType.TRANSFER) {
             _txn.agentAccount = msg.sender;
             _txn.account.agentName = _name;
@@ -345,8 +362,8 @@ contract SargoEscrow is
             ),
             "Treasury fee failed."
         );
-        //_removeFromPaired(_txn.clientAccount, _txn.pairedIndex);
-        //_removeFromPaired(_txn.agentAccount, _txn.pairedIndex);
+        _removeFromPaired(_txn.id);
+
         _txn.status = Status.COMPLETED;
 
         emit TransactionCompleted(_txn.id, _txn.timestamp, _txn);
@@ -446,7 +463,7 @@ contract SargoEscrow is
         _txn.account.agentName = _agentName;
         _txn.account.agentPhoneNumber = _agentPhoneNumber;
         _txn.agentKey = _agentKey;
-        _txn.pairedIndex = _addToPairing(msg.sender, _txn.id);
+        _txn.agentPairedIndex = _addToPairing(_txn.agentAccount, _txn.id);
 
         require(
             IERC20Upgradeable(tokenAddress).transferFrom(
@@ -493,7 +510,7 @@ contract SargoEscrow is
         _txn.account.clientName = _clientName;
         _txn.account.clientPhoneNumber = _clientPhoneNumber;
         _txn.clientKey = _clientKey;
-        _txn.pairedIndex = _addToPairing(msg.sender, _txn.id);
+        _txn.clientPairedIndex = _addToPairing(_txn.clientAccount, _txn.id);
 
         require(
             IERC20Upgradeable(tokenAddress).transferFrom(
@@ -560,12 +577,12 @@ contract SargoEscrow is
     ) public onRequestOnly(_txnId) whenNotPaused nonReentrant {
         Transaction storage _txn = transactions[_txnId];
 
-        _txn.status = Status.CANCELLED;
         _txn.totalAmount = 0;
         _txn.agentFee = 0;
         _txn.treasuryFee = 0;
         _removeFromRequests(_txn.requestIndex);
-        _removeFromPaired(msg.sender, _txn.pairedIndex);
+        _removeFromPaired(_txn.id);
+        _txn.status = Status.CANCELLED;
 
         emit TransactionCancelled(_txn.id, _txn.timestamp, _txn, _reason);
     }

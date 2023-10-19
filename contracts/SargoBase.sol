@@ -40,7 +40,8 @@ contract SargoBase {
         string clientKey;
         string agentKey;
         uint256 requestIndex;
-        uint256 pairedIndex;
+        uint256 clientPairedIndex;
+        uint256 agentPairedIndex;
     }
 
     struct CounterParty {

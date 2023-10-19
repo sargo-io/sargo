@@ -551,7 +551,8 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
       //count
       const _earnings = await sargoEscrow.getEarnings(client.address);
       expect(_earnings.totalEarned).to.equal(agentFee);
-      expect(_agentConfirmed.pairedIndex).to.equal(0);
+      expect(_agentConfirmed.clientPairedIndex).to.equal(0);
+      expect(_agentConfirmed.agentPairedIndex).to.equal(0);
       expect(_pairedClientRemoved).to.equal(0);
       expect(_pairedAgentRemoved).to.equal(0);
 
