@@ -16,7 +16,9 @@ contract SargoBase {
         DISPUTED,
         COMPLETED,
         CANCELLED,
-        CLAIMED
+        CLAIMED,
+        REFUNDED,
+        VOIDED
     }
 
     struct Transaction {

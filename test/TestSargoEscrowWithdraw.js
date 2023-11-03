@@ -720,15 +720,15 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
       const disputedTx = await sargoEscrow
         .connect(agent)
         .disputeTransaction(_accepted.id, "reason");
-      const _cancelled = await sargoEscrow.getTransactionById(_accepted.id);
+      const _disputed = await sargoEscrow.getTransactionById(_accepted.id);
 
-      expect(_cancelled.id).to.equal(1);
-      expect(_cancelled.agentAccount).to.equal(agent.address);
-      expect(_cancelled.txType).to.equal(1);
-      expect(_cancelled.status).to.equal(2);
-      expect(_cancelled.clientAccount).to.equal(client.address);
-      expect(_cancelled.account.clientName).to.equal(clientName);
-      expect(_cancelled.account.clientPhoneNumber).to.equal(clientPhone);
+      expect(_disputed.id).to.equal(1);
+      expect(_disputed.agentAccount).to.equal(agent.address);
+      expect(_disputed.txType).to.equal(1);
+      expect(_disputed.status).to.equal(2);
+      expect(_disputed.clientAccount).to.equal(client.address);
+      expect(_disputed.account.clientName).to.equal(clientName);
+      expect(_disputed.account.clientPhoneNumber).to.equal(clientPhone);
 
       await expect(withdrawRequest).to.emit(
         sargoEscrow,
@@ -737,7 +737,7 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
       //.withArgs(_request.id, _request.timestamp, _request);
 
       await expect(disputedTx).to.emit(sargoEscrow, "TransactionDisputed");
-      //.withArgs(_cancelled.id, _cancelled.timestamp, _cancelled, "reason");
+      //.withArgs(_disputed.id, _disputed.timestamp, _disputed, "reason");
     });
 
     it("Should emit a disputed withdraw transaction event", async function () {
@@ -790,7 +790,7 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
       const disputedTx = await sargoEscrow
         .connect(agent)
         .disputeTransaction(_accepted.id, "reason");
-      const _cancelled = await sargoEscrow.getTransactionById(_accepted.id);
+      const _disputed = await sargoEscrow.getTransactionById(_accepted.id);
 
       await expect(withdrawRequest).to.emit(
         sargoEscrow,
@@ -799,12 +799,13 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
       //.withArgs(_request.id, _request.timestamp, _request);
 
       await expect(disputedTx).to.emit(sargoEscrow, "TransactionDisputed");
-      //.withArgs(_cancelled.id, _cancelled.timestamp, _cancelled, "reason");
+      //.withArgs(_disputed.id, _disputed.timestamp, _disputed, "reason");
     });
 
-    it("Should allow for a withdraw transaction to be flagged as claim", async () => {
+    it("Should allow for a disputed withdraw transaction to be flagged as claim", async () => {
       const {
         sargoEscrow,
+        owner,
         sargoToken,
         agent,
         client,
@@ -855,7 +856,7 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
       const _disputed = await sargoEscrow.getTransactionById(_accepted.id);
 
       const claimedTx = await sargoEscrow
-        .connect(client)
+        .connect(owner)
         .claimTransaction(_disputed.id, "resolution");
 
       const _claimed = await sargoEscrow.getTransactionById(_disputed.id);
@@ -884,6 +885,7 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
     it("Should emit a claimed withdraw transaction event", async function () {
       const {
         sargoEscrow,
+        owner,
         sargoToken,
         client,
         agent,
@@ -934,7 +936,7 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
       const _disputed = await sargoEscrow.getTransactionById(_accepted.id);
 
       const claimedTx = await sargoEscrow
-        .connect(client)
+        .connect(owner)
         .claimTransaction(_disputed.id, "resolution");
 
       const _claimed = await sargoEscrow.getTransactionById(_disputed.id);
@@ -954,35 +956,219 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
   });
 
   describe("Utility transactions", function () {
-    it("Should allow the owner to change transaction status", async () => {
+    it("Should allow the owner to change withdraw transaction status", async () => {
       const {
         sargoEscrow,
+        owner,
+        sargoToken,
         client,
+        agent,
         amount,
         currencyCode,
         conversionRate,
         paymentMethod,
+        agentName,
+        agentPhone,
+        agentKey,
         clientName,
         clientPhone,
         clientKey,
+        acceptedConversionRate,
+        fundAmount,
       } = await loadFixture(deployEscrowFixture);
 
-      await sargoEscrow
-        .connect(client)
-        .initiateDeposit(
+      const withdrawRequest = await sargoEscrow
+        .connect(agent)
+        .initiateWithdrawal(
           amount,
           currencyCode,
           conversionRate,
           paymentMethod,
-          clientName,
-          clientPhone,
-          clientKey
+          agentName,
+          agentPhone,
+          agentKey
         );
 
       const _request = await sargoEscrow.getTransactionById(1);
-      await sargoEscrow.transactionStatus(_request.id, 3);
+
+      await sargoToken.transfer(agent.address, fundAmount);
+      await sargoToken
+        .connect(agent)
+        .approve(await sargoEscrow.getAddress(), fundAmount);
+
+      await sargoEscrow
+        .connect(client)
+        .acceptWithdrawal(
+          _request.id,
+          clientName,
+          clientPhone,
+          acceptedConversionRate,
+          clientKey
+        );
+      const _accepted = await sargoEscrow.getTransactionById(_request.id);
+
+      await sargoEscrow.connect(owner).transactionStatus(_accepted.id, 2);
       const _statusChanged = await sargoEscrow.getTransactionById(1);
-      expect(_statusChanged.status).to.equal(3);
+      expect(_statusChanged.status).to.equal(2);
+    });
+
+    it("Should allow the owner to refund a counter-party in a withdraw transaction in claim", async () => {
+      const {
+        sargoEscrow,
+        owner,
+        sargoToken,
+        client,
+        agent,
+        amount,
+        currencyCode,
+        conversionRate,
+        paymentMethod,
+        agentName,
+        agentPhone,
+        agentKey,
+        clientName,
+        clientPhone,
+        clientKey,
+        acceptedConversionRate,
+        fundAmount,
+      } = await loadFixture(deployEscrowFixture);
+
+      const withdrawRequest = await sargoEscrow
+        .connect(agent)
+        .initiateWithdrawal(
+          amount,
+          currencyCode,
+          conversionRate,
+          paymentMethod,
+          agentName,
+          agentPhone,
+          agentKey
+        );
+
+      const _request = await sargoEscrow.getTransactionById(1);
+
+      await sargoToken.transfer(agent.address, fundAmount);
+      await sargoToken
+        .connect(agent)
+        .approve(await sargoEscrow.getAddress(), fundAmount);
+
+      await sargoEscrow
+        .connect(client)
+        .acceptWithdrawal(
+          _request.id,
+          clientName,
+          clientPhone,
+          acceptedConversionRate,
+          clientKey
+        );
+      const _accepted = await sargoEscrow.getTransactionById(_request.id);
+
+      await sargoEscrow
+        .connect(agent)
+        .disputeTransaction(_accepted.id, "reason");
+      const _disputed = await sargoEscrow.getTransactionById(_accepted.id);
+
+      await sargoEscrow
+        .connect(owner)
+        .claimTransaction(_disputed.id, "resolution");
+
+      const _claimed = await sargoEscrow.getTransactionById(_disputed.id);
+
+      await sargoToken.transfer(await sargoEscrow.getAddress(), fundAmount);
+      await sargoToken
+        .connect(owner)
+        .approve(await sargoEscrow.getAddress(), fundAmount);
+
+      const _escrowBalance = await sargoToken.balanceOf(
+        await sargoEscrow.getAddress()
+      );
+
+      expect(_escrowBalance).to.greaterThanOrEqual(_claimed.totalAmount);
+
+      const refundTx = await await sargoEscrow
+        .connect(owner)
+        .refundTransaction(_claimed.id, 0, _claimed.totalAmount, "resolution");
+      const _refunded = await sargoEscrow.getTransactionById(1);
+
+      expect(_refunded.status).to.equal(6);
+      expect(
+        await sargoToken.balanceOf(await sargoEscrow.getAddress())
+      ).to.equal(_escrowBalance - _claimed.totalAmount);
+
+      await expect(refundTx).to.emit(sargoEscrow, "TransactionResolved");
+      //.withArgs(_refunded.id, _refunded.timestamp, _refunded, "resolution");
+    });
+
+    it("Should allow the owner to void withdraw transaction in claim", async () => {
+      const {
+        sargoEscrow,
+        owner,
+        sargoToken,
+        client,
+        agent,
+        amount,
+        currencyCode,
+        conversionRate,
+        paymentMethod,
+        agentName,
+        agentPhone,
+        agentKey,
+        clientName,
+        clientPhone,
+        clientKey,
+        acceptedConversionRate,
+        fundAmount,
+      } = await loadFixture(deployEscrowFixture);
+
+      const withdrawRequest = await sargoEscrow
+        .connect(agent)
+        .initiateWithdrawal(
+          amount,
+          currencyCode,
+          conversionRate,
+          paymentMethod,
+          agentName,
+          agentPhone,
+          agentKey
+        );
+
+      const _request = await sargoEscrow.getTransactionById(1);
+
+      await sargoToken.transfer(agent.address, fundAmount);
+      await sargoToken
+        .connect(agent)
+        .approve(await sargoEscrow.getAddress(), fundAmount);
+
+      await sargoEscrow
+        .connect(client)
+        .acceptWithdrawal(
+          _request.id,
+          clientName,
+          clientPhone,
+          acceptedConversionRate,
+          clientKey
+        );
+      const _accepted = await sargoEscrow.getTransactionById(_request.id);
+
+      await sargoEscrow
+        .connect(agent)
+        .disputeTransaction(_accepted.id, "reason");
+      const _disputed = await sargoEscrow.getTransactionById(_accepted.id);
+
+      await sargoEscrow
+        .connect(owner)
+        .claimTransaction(_disputed.id, "resolution");
+
+      const _claimed = await sargoEscrow.getTransactionById(_disputed.id);
+
+      const voidTx = await sargoEscrow
+        .connect(owner)
+        .voidTransaction(_claimed.id, "resolution");
+      const _voided = await sargoEscrow.getTransactionById(1);
+
+      expect(_voided.status).to.equal(7);
+      await expect(voidTx).to.emit(sargoEscrow, "TransactionResolved");
+      //.withArgs(_voided.id, _voided.timestamp, _voided, "resolution");
     });
 
     it("Should get the estimated gas price", async () => {});

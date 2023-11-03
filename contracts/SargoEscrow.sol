@@ -115,6 +115,12 @@ contract SargoEscrow is
         Transaction txn,
         string resolution
     );
+    event TransactionResolved(
+        uint256 indexed id,
+        uint256 indexed timestamp,
+        Transaction txn,
+        string resolution
+    );
     event Transfer(
         uint256 indexed id,
         uint256 indexed timestamp,
@@ -206,24 +212,34 @@ contract SargoEscrow is
                 pairing[_txn.clientAccount][_txn.clientPairedIndex] = pairing[
                     _txn.clientAccount
                 ][pairing[_txn.clientAccount].length - 1];
-
                 pairing[_txn.clientAccount].pop();
             } else if (_txn.txType == TransactionType.WITHDRAW) {
                 pairing[_txn.agentAccount][_txn.agentPairedIndex] = pairing[
                     _txn.agentAccount
                 ][pairing[_txn.agentAccount].length - 1];
-
                 pairing[_txn.agentAccount].pop();
             }
-        } else if (_txn.status == Status.PAIRED) {
-            pairing[_txn.clientAccount][_txn.clientPairedIndex] = pairing[
-                _txn.clientAccount
-            ][pairing[_txn.clientAccount].length - 1];
-            pairing[_txn.agentAccount][_txn.agentPairedIndex] = pairing[
-                _txn.agentAccount
-            ][pairing[_txn.agentAccount].length - 1];
-            pairing[_txn.clientAccount].pop();
-            pairing[_txn.agentAccount].pop();
+        } else {
+            uint256 cLen = pairing[_txn.clientAccount].length;
+            uint256 aLen = pairing[_txn.agentAccount].length;
+
+            for (uint256 i = 0; i < cLen; i++) {
+                if (pairing[_txn.clientAccount][i] == _txn.id) {
+                    pairing[_txn.clientAccount][i] = pairing[
+                        _txn.clientAccount
+                    ][pairing[_txn.clientAccount].length - 1];
+                    pairing[_txn.clientAccount].pop();
+                }
+            }
+
+            for (uint256 i = 0; i < aLen; i++) {
+                if (pairing[_txn.agentAccount][i] == _txn.id) {
+                    pairing[_txn.agentAccount][i] = pairing[_txn.agentAccount][
+                        pairing[_txn.agentAccount].length - 1
+                    ];
+                    pairing[_txn.agentAccount].pop();
+                }
+            }
         }
     }
 
@@ -326,6 +342,8 @@ contract SargoEscrow is
         require(_txn.agentApproved && _txn.clientApproved, "Not CONFIRMED");
         require(_txn.status != Status.DISPUTED, "DISPUTED");
         require(_txn.status != Status.CLAIMED, "CLAIMED");
+        require(_txn.status != Status.REFUNDED, "REFUNDED");
+        require(_txn.status != Status.VOIDED, "VOIDED");
 
         /* fulfilled amount */
         require(
@@ -362,9 +380,9 @@ contract SargoEscrow is
             ),
             "Treasury fee failed."
         );
-        _removeFromPaired(_txn.id);
 
         _txn.status = Status.COMPLETED;
+        _removeFromPaired(_txn.id);
 
         emit TransactionCompleted(_txn.id, _txn.timestamp, _txn);
     }
@@ -581,8 +599,8 @@ contract SargoEscrow is
         _txn.agentFee = 0;
         _txn.treasuryFee = 0;
         _removeFromRequests(_txn.requestIndex);
-        _removeFromPaired(_txn.id);
         _txn.status = Status.CANCELLED;
+        _removeFromPaired(_txn.id);
 
         emit TransactionCancelled(_txn.id, _txn.timestamp, _txn, _reason);
     }
@@ -616,7 +634,7 @@ contract SargoEscrow is
     function claimTransaction(
         uint256 _txnId,
         string calldata _resolution
-    ) public whenNotPaused nonReentrant {
+    ) public onlyOwner whenNotPaused nonReentrant {
         Transaction storage _txn = transactions[_txnId];
         require(_txn.status == Status.DISPUTED, "DISPUTED");
         _txn.status = Status.CLAIMED;
@@ -790,8 +808,84 @@ contract SargoEscrow is
         Status _status
     ) public onlyOwner whenNotPaused nonReentrant {
         Transaction storage _txn = transactions[_txnId];
+        require(_txn.status != Status.REQUEST, "Invalid tx Status");
 
         _txn.status = _status;
         emit TransactionStatus(_txn.id, _txn.timestamp, _txn);
+    }
+
+    /**
+     * @dev Send refund tokens to counter-parties
+     * @notice Refund counter-parties when in claim, allowed only tokens need to be refunded
+     */
+    function refundTransaction(
+        uint256 _txnId,
+        uint256 _clientRefundAmount,
+        uint256 _agentRefundAmount,
+        string calldata _resolution
+    ) public payable onlyOwner whenNotPaused nonReentrant {
+        Transaction storage _txn = transactions[_txnId];
+        require(_txn.status == Status.CLAIMED, "CLAIMED");
+        require(
+            _clientRefundAmount > 0 || _agentRefundAmount > 0,
+            "Zero amount"
+        );
+        require(
+            _clientRefundAmount + _agentRefundAmount <= _txn.totalAmount,
+            "Invalid amount"
+        );
+        require(
+            IERC20Upgradeable(tokenAddress).balanceOf(address(this)) >
+                _txn.totalAmount,
+            "Insufficient balance"
+        );
+
+        if (_clientRefundAmount > 0) {
+            require(
+                IERC20Upgradeable(tokenAddress).transfer(
+                    _txn.clientAccount,
+                    _clientRefundAmount
+                ),
+                "Refund failed."
+            );
+        }
+
+        if (_agentRefundAmount > 0) {
+            require(
+                IERC20Upgradeable(tokenAddress).transfer(
+                    _txn.agentAccount,
+                    _agentRefundAmount
+                ),
+                "Refund failed."
+            );
+        }
+
+        _txn.totalAmount = 0;
+        _txn.agentFee = 0;
+        _txn.treasuryFee = 0;
+        _txn.status = Status.REFUNDED;
+        _removeFromPaired(_txn.id);
+
+        emit TransactionResolved(_txn.id, _txn.timestamp, _txn, _resolution);
+    }
+
+    /**
+     * @dev Flag a claim as voided
+     * @notice Void a transaction in claim, when no refund tokens need to be sent
+     */
+    function voidTransaction(
+        uint256 _txnId,
+        string calldata _resolution
+    ) public onlyOwner whenNotPaused nonReentrant {
+        Transaction storage _txn = transactions[_txnId];
+        require(_txn.status == Status.CLAIMED, "CLAIMED");
+
+        _txn.totalAmount = 0;
+        _txn.agentFee = 0;
+        _txn.treasuryFee = 0;
+        _txn.status = Status.VOIDED;
+        _removeFromPaired(_txn.id);
+
+        emit TransactionResolved(_txn.id, _txn.timestamp, _txn, _resolution);
     }
 }
