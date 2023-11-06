@@ -16,7 +16,9 @@ contract SargoBase {
         DISPUTED,
         COMPLETED,
         CANCELLED,
-        CLAIMED
+        CLAIMED,
+        REFUNDED,
+        VOIDED
     }
 
     struct Transaction {
@@ -40,6 +42,8 @@ contract SargoBase {
         string clientKey;
         string agentKey;
         uint256 requestIndex;
+        uint256 clientPairedIndex;
+        uint256 agentPairedIndex;
     }
 
     struct CounterParty {
