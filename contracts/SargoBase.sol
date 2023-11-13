@@ -64,7 +64,7 @@ contract SargoBase {
     function setRefNumber(uint256 _txnId) public view returns (string memory) {
         return
             string.concat(
-                Strings.toString((1 * 10 ** 19) + block.timestamp + _txnId)
+                Strings.toString((1 * 10 ** 16) + block.timestamp + _txnId)
             );
     }
 }
