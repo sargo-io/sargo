@@ -24,9 +24,9 @@ describe("==SARGO ESCROW TRANSFER TESTS ================================", () =>
       "ether"
     );
 
-    const amount = ethers.parseUnits("5", "ether");
-    const agentFee = ethers.parseUnits("0.025", "ether");
-    const treasuryFee = ethers.parseUnits("0.025", "ether");
+    const amount = ethers.parseUnits("1", "ether");
+    const agentFee = ethers.parseUnits("0.005", "ether");
+    const treasuryFee = ethers.parseUnits("0.005", "ether");
     const fundAmount = ethers.parseUnits("7", "ether");
     const currencyCode = "KES";
     const conversionRate = ethers.parseUnits("140", "ether");
@@ -38,6 +38,10 @@ describe("==SARGO ESCROW TRANSFER TESTS ================================", () =>
     const paymentMethod = "Mpesa";
     const clientKey = "clientkey";
     const agentKey = "agentKey";
+
+    const agentFeeRate = ethers.parseUnits("0.5", "ether");
+    const treasuryFeeRate = ethers.parseUnits("0.5", "ether");
+    const transferFeeRate = ethers.parseUnits("0.01", "ether");
 
     //ERC20 contract
     const SargoToken = await ethers.getContractFactory("SargoToken");
@@ -119,6 +123,9 @@ describe("==SARGO ESCROW TRANSFER TESTS ================================", () =>
       paymentMethod,
       clientKey,
       agentKey,
+      agentFeeRate,
+      treasuryFeeRate,
+      transferFeeRate,
     };
   }
 
@@ -156,7 +163,27 @@ describe("==SARGO ESCROW TRANSFER TESTS ================================", () =>
       );
     });
 
-    //TODO: get fee for all tx types
+    it("Should get the right agent fee rate", async () => {
+      const { sargoEscrow, agentFeeRate } = await loadFixture(
+        deployEscrowFixture
+      );
+      expect(await sargoEscrow.getAgentFeeRate()).to.equal(agentFeeRate);
+    });
+
+    it("Should get the right treasury fee rate", async () => {
+      const { sargoEscrow, treasuryFeeRate } = await loadFixture(
+        deployEscrowFixture
+      );
+      expect(await sargoEscrow.getTreasuryFeeRate()).to.equal(treasuryFeeRate);
+    });
+
+    it("Should get the right transfer fee rate", async () => {
+      const { sargoEscrow, transferFeeRate } = await loadFixture(
+        deployEscrowFixture
+      );
+      expect(await sargoEscrow.getTransferFeeRate()).to.equal(transferFeeRate);
+    });
+
     it("Should get the right agent fee", async () => {
       const { sargoEscrow, amount, agentFee } = await loadFixture(
         deployEscrowFixture
