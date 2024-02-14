@@ -11,7 +11,6 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 
 import "./SargoBase.sol";
 import "./SargoFee.sol";
-import "hardhat/console.sol";
 
 /**
  * @title SargoEscrow
@@ -340,6 +339,7 @@ contract SargoEscrow is
         );
 
         _txn.status = Status.COMPLETED;
+        _removeFromPaired(_txn.id);
 
         emit TransactionCompleted(_txn.id, _txn.timestamp, _txn);
     }

@@ -550,6 +550,12 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
       const clientExpected = _clientBalance + amount + agentFee;
       const treasuryExpected = _treasuryBalance + treasuryFee;
       const escrowExpected = _escrowBalance - amount - agentFee - treasuryFee;
+      const _pairedClientRemoved = await sargoEscrow.getPairedLength(
+        client.address
+      );
+      const _pairedAgentRemoved = await sargoEscrow.getPairedLength(
+        agent.address
+      );
 
       expect(_agentConfirmed.id).to.equal(1);
       expect(_agentConfirmed.txType).to.equal(1);
@@ -623,6 +629,9 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
         .connect(agent)
         .cancelTransaction(_request.id, "reason");
       const _cancelled = await sargoEscrow.getTransactionById(_request.id);
+      const _pairedAgentRemoved = await sargoEscrow.getPairedLength(
+        agent.address
+      );
 
       expect(_cancelled.id).to.equal(1);
       expect(_cancelled.agentAccount).to.equal(agent.address);
@@ -630,6 +639,7 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
       expect(_cancelled.status).to.equal(4);
       expect(_cancelled.agentApproved).to.equal(false);
       expect(_cancelled.clientApproved).to.equal(false);
+      expect(_pairedAgentRemoved).to.equal(0);
 
       await expect(withdrawRequest).to.emit(
         sargoEscrow,
