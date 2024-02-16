@@ -201,49 +201,6 @@ contract SargoEscrow is
     }
 
     /**
-     * @dev Remove a txnId from the paired list by index when transaction is
-     * completed,
-     **/
-    function _removeFromPaired(uint256 _txnId) private {
-        Transaction storage _txn = transactions[_txnId];
-
-        if (_txn.status == Status.REQUEST) {
-            if (_txn.txType == TransactionType.DEPOSIT) {
-                pairing[_txn.clientAccount][_txn.clientPairedIndex] = pairing[
-                    _txn.clientAccount
-                ][pairing[_txn.clientAccount].length - 1];
-                pairing[_txn.clientAccount].pop();
-            } else if (_txn.txType == TransactionType.WITHDRAW) {
-                pairing[_txn.agentAccount][_txn.agentPairedIndex] = pairing[
-                    _txn.agentAccount
-                ][pairing[_txn.agentAccount].length - 1];
-                pairing[_txn.agentAccount].pop();
-            }
-        } else {
-            uint256 cLen = pairing[_txn.clientAccount].length;
-            uint256 aLen = pairing[_txn.agentAccount].length;
-
-            for (uint256 i = 0; i < cLen; i++) {
-                if (pairing[_txn.clientAccount][i] == _txn.id) {
-                    pairing[_txn.clientAccount][i] = pairing[
-                        _txn.clientAccount
-                    ][pairing[_txn.clientAccount].length - 1];
-                    pairing[_txn.clientAccount].pop();
-                }
-            }
-
-            for (uint256 i = 0; i < aLen; i++) {
-                if (pairing[_txn.agentAccount][i] == _txn.id) {
-                    pairing[_txn.agentAccount][i] = pairing[_txn.agentAccount][
-                        pairing[_txn.agentAccount].length - 1
-                    ];
-                    pairing[_txn.agentAccount].pop();
-                }
-            }
-        }
-    }
-
-    /**
      * @dev Add a transaction id into address transaction history
      * @notice Alist of all txnIds for each address
      **/
@@ -382,7 +339,6 @@ contract SargoEscrow is
         );
 
         _txn.status = Status.COMPLETED;
-        _removeFromPaired(_txn.id);
 
         emit TransactionCompleted(_txn.id, _txn.timestamp, _txn);
     }
@@ -600,7 +556,6 @@ contract SargoEscrow is
         _txn.treasuryFee = 0;
         _removeFromRequests(_txn.requestIndex);
         _txn.status = Status.CANCELLED;
-        _removeFromPaired(_txn.id);
 
         emit TransactionCancelled(_txn.id, _txn.timestamp, _txn, _reason);
     }
@@ -649,6 +604,27 @@ contract SargoEscrow is
         uint256 _txnId
     ) public view returns (Transaction memory) {
         return transactions[_txnId];
+    }
+
+    /**
+     * @dev Get the agent fee rate
+     */
+    function getAgentFeeRate() public view returns (uint256) {
+        return SargoFee(feeAddress).agentFeeRate();
+    }
+
+    /**
+     * @dev Get the treasury fee rate
+     */
+    function getTreasuryFeeRate() public view returns (uint256) {
+        return SargoFee(feeAddress).treasuryFeeRate();
+    }
+
+    /**
+     * @dev Get the token transfer fee rate
+     */
+    function getTransferFeeRate() public view returns (uint256) {
+        return SargoFee(feeAddress).transferFeeRate();
     }
 
     /**
@@ -812,14 +788,6 @@ contract SargoEscrow is
 
         _txn.status = _status;
 
-        if (
-            _txn.status == Status.COMPLETED ||
-            _txn.status == Status.REFUNDED ||
-            _txn.status == Status.VOIDED
-        ) {
-            _removeFromPaired(_txn.id);
-        }
-
         emit TransactionStatus(_txn.id, _txn.timestamp, _txn);
     }
 
@@ -873,7 +841,6 @@ contract SargoEscrow is
         _txn.agentFee = 0;
         _txn.treasuryFee = 0;
         _txn.status = Status.REFUNDED;
-        _removeFromPaired(_txn.id);
 
         emit TransactionResolved(_txn.id, _txn.timestamp, _txn, _resolution);
     }
@@ -893,7 +860,6 @@ contract SargoEscrow is
         _txn.agentFee = 0;
         _txn.treasuryFee = 0;
         _txn.status = Status.VOIDED;
-        _removeFromPaired(_txn.id);
 
         emit TransactionResolved(_txn.id, _txn.timestamp, _txn, _resolution);
     }

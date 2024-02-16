@@ -24,9 +24,9 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
       "ether"
     );
 
-    const amount = ethers.parseUnits("5", "ether");
-    const agentFee = ethers.parseUnits("0.025", "ether");
-    const treasuryFee = ethers.parseUnits("0.025", "ether");
+    const amount = ethers.parseUnits("1", "ether");
+    const agentFee = ethers.parseUnits("0.005", "ether");
+    const treasuryFee = ethers.parseUnits("0.005", "ether");
     const fundAmount = ethers.parseUnits("7", "ether");
     const currencyCode = "KES";
     const conversionRate = ethers.parseUnits("140", "ether");
@@ -38,6 +38,12 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
     const paymentMethod = "Mpesa";
     const clientKey = "clientkey";
     const agentKey = "agentKey";
+    const agentFeeRate = ethers.parseUnits("0.5", "ether");
+    const treasuryFeeRate = ethers.parseUnits("0.5", "ether");
+    const transferFeeRate = ethers.parseUnits("0.01", "ether");
+
+    const clientClaimAmount = ethers.parseUnits("0.5", "ether");
+    const agentClaimAmount = ethers.parseUnits("0.5", "ether");
 
     //ERC20 contract
     const SargoToken = await ethers.getContractFactory("SargoToken");
@@ -119,6 +125,11 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
       paymentMethod,
       clientKey,
       agentKey,
+      agentFeeRate,
+      treasuryFeeRate,
+      transferFeeRate,
+      clientClaimAmount,
+      agentClaimAmount,
     };
   }
 
@@ -156,7 +167,20 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
       );
     });
 
-    //TODO: get fee for all tx types
+    it("Should get the right agent fee rate", async () => {
+      const { sargoEscrow, agentFeeRate } = await loadFixture(
+        deployEscrowFixture
+      );
+      expect(await sargoEscrow.getAgentFeeRate()).to.equal(agentFeeRate);
+    });
+
+    it("Should get the right treasury fee rate", async () => {
+      const { sargoEscrow, treasuryFeeRate } = await loadFixture(
+        deployEscrowFixture
+      );
+      expect(await sargoEscrow.getTreasuryFeeRate()).to.equal(treasuryFeeRate);
+    });
+
     it("Should get the right agent fee", async () => {
       const { sargoEscrow, amount, agentFee } = await loadFixture(
         deployEscrowFixture
@@ -538,8 +562,6 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
       expect(_earnings.totalEarned).to.equal(agentFee);
       expect(_agentConfirmed.clientPairedIndex).to.equal(0);
       expect(_agentConfirmed.agentPairedIndex).to.equal(0);
-      expect(_pairedClientRemoved).to.equal(0);
-      expect(_pairedAgentRemoved).to.equal(0);
 
       await expect(clientConfirmed).to.emit(sargoEscrow, "ClientConfirmed");
       // .withArgs(
@@ -977,7 +999,7 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
       expect(_statusChanged.status).to.equal(2);
     });
 
-    it("Should allow the owner to refund a counter-party in a deposit transaction in claim", async () => {
+    it("Should allow the owner to refund whole amount to a counter-party in a deposit transaction in claim", async () => {
       const {
         sargoEscrow,
         owner,
@@ -1054,13 +1076,109 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
 
       const refundTx = await sargoEscrow
         .connect(owner)
-        .refundTransaction(_claimed.id, 0, _claimed.totalAmount, "resolution");
+        .refundTransaction(_claimed.id, 0, _claimed.netAmount, "resolution");
       const _refunded = await sargoEscrow.getTransactionById(1);
 
       expect(_refunded.status).to.equal(6);
       expect(
         await sargoToken.balanceOf(await sargoEscrow.getAddress())
-      ).to.equal(_escrowBalance - _claimed.totalAmount);
+      ).to.equal(_escrowBalance - _claimed.netAmount);
+
+      await expect(refundTx).to.emit(sargoEscrow, "TransactionResolved");
+      //.withArgs(_refunded.id, _refunded.timestamp, _refunded, "resolution");
+    });
+
+    it("Should allow the owner to refund split amount to counter-parties in a deposit transaction in claim", async () => {
+      const {
+        sargoEscrow,
+        owner,
+        sargoToken,
+        client,
+        agent,
+        amount,
+        currencyCode,
+        conversionRate,
+        paymentMethod,
+        clientName,
+        clientPhone,
+        clientKey,
+        agentName,
+        agentPhone,
+        acceptedConversionRate,
+        fundAmount,
+        agentKey,
+        clientClaimAmount,
+        agentClaimAmount,
+      } = await loadFixture(deployEscrowFixture);
+
+      await sargoEscrow
+        .connect(client)
+        .initiateDeposit(
+          amount,
+          currencyCode,
+          conversionRate,
+          paymentMethod,
+          clientName,
+          clientPhone,
+          clientKey
+        );
+
+      const _request = await sargoEscrow.getTransactionById(1);
+
+      await sargoToken.transfer(agent.address, fundAmount);
+
+      await sargoToken
+        .connect(agent)
+        .approve(await sargoEscrow.getAddress(), fundAmount);
+
+      await sargoEscrow
+        .connect(agent)
+        .acceptDeposit(
+          _request.id,
+          agentName,
+          agentPhone,
+          acceptedConversionRate,
+          agentKey
+        );
+
+      const _accepted = await sargoEscrow.getTransactionById(_request.id);
+
+      await sargoEscrow
+        .connect(agent)
+        .disputeTransaction(_accepted.id, "reason");
+      const _disputed = await sargoEscrow.getTransactionById(_accepted.id);
+
+      await sargoEscrow
+        .connect(owner)
+        .claimTransaction(_disputed.id, "resolution");
+
+      const _claimed = await sargoEscrow.getTransactionById(_disputed.id);
+
+      await sargoToken.transfer(await sargoEscrow.getAddress(), fundAmount);
+      await sargoToken
+        .connect(owner)
+        .approve(await sargoEscrow.getAddress(), fundAmount);
+
+      const _escrowBalance = await sargoToken.balanceOf(
+        await sargoEscrow.getAddress()
+      );
+
+      expect(_escrowBalance).to.greaterThanOrEqual(_claimed.totalAmount);
+
+      const refundTx = await sargoEscrow
+        .connect(owner)
+        .refundTransaction(
+          _claimed.id,
+          clientClaimAmount,
+          agentClaimAmount,
+          "resolution"
+        );
+      const _refunded = await sargoEscrow.getTransactionById(1);
+
+      expect(_refunded.status).to.equal(6);
+      expect(
+        await sargoToken.balanceOf(await sargoEscrow.getAddress())
+      ).to.equal(_escrowBalance - _claimed.netAmount);
 
       await expect(refundTx).to.emit(sargoEscrow, "TransactionResolved");
       //.withArgs(_refunded.id, _refunded.timestamp, _refunded, "resolution");
