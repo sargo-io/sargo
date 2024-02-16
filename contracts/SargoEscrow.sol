@@ -339,7 +339,6 @@ contract SargoEscrow is
         );
 
         _txn.status = Status.COMPLETED;
-        _removeFromPaired(_txn.id);
 
         emit TransactionCompleted(_txn.id, _txn.timestamp, _txn);
     }
