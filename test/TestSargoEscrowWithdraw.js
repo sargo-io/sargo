@@ -225,6 +225,10 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
           agentName,
           agentPhone,
           agentKey
+          address _clientAccount,
+        string memory _clientName,
+        string memory _clientPhoneNumber,
+        string memory _clientKey
         );
       const _request = await sargoEscrow.getTransactionById(1);
       const _totalAmount = amount + agentFee + treasuryFee;
@@ -280,6 +284,10 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
           agentName,
           agentPhone,
           agentKey
+          address _clientAccount,
+        string memory _clientName,
+        string memory _clientPhoneNumber,
+        string memory _clientKey
         );
       const _request = await sargoEscrow.getTransactionById(1);
 
@@ -314,6 +322,10 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
           agentName,
           agentPhone,
           agentKey
+          address _clientAccount,
+        string memory _clientName,
+        string memory _clientPhoneNumber,
+        string memory _clientKey
         );
 
       const _requested = await sargoEscrow.getTransactionById(1);
@@ -358,6 +370,10 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
           agentName,
           agentPhone,
           agentKey
+          address _clientAccount,
+        string memory _clientName,
+        string memory _clientPhoneNumber,
+        string memory _clientKey
         );
       const _request = await sargoEscrow.getTransactionById(1);
 
@@ -442,6 +458,10 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
           agentName,
           agentPhone,
           agentKey
+          address _clientAccount,
+        string memory _clientName,
+        string memory _clientPhoneNumber,
+        string memory _clientKey
         );
       const _request = await sargoEscrow.getTransactionById(1);
 
@@ -504,6 +524,10 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
           agentName,
           agentPhone,
           agentKey
+          address _clientAccount,
+        string memory _clientName,
+        string memory _clientPhoneNumber,
+        string memory _clientKey
         );
       const _request = await sargoEscrow.getTransactionById(1);
 
@@ -622,6 +646,10 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
           agentName,
           agentPhone,
           agentKey
+          address _clientAccount,
+        string memory _clientName,
+        string memory _clientPhoneNumber,
+        string memory _clientKey
         );
       const _request = await sargoEscrow.getTransactionById(1);
 
@@ -675,6 +703,10 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
           agentName,
           agentPhone,
           agentKey
+          address _clientAccount,
+        string memory _clientName,
+        string memory _clientPhoneNumber,
+        string memory _clientKey
         );
       const _request = await sargoEscrow.getTransactionById(1);
 
@@ -722,6 +754,10 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
           agentName,
           agentPhone,
           agentKey
+          address _clientAccount,
+        string memory _clientName,
+        string memory _clientPhoneNumber,
+        string memory _clientKey
         );
       const _request = await sargoEscrow.getTransactionById(1);
 
@@ -792,6 +828,10 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
           agentName,
           agentPhone,
           agentKey
+          address _clientAccount,
+        string memory _clientName,
+        string memory _clientPhoneNumber,
+        string memory _clientKey
         );
       const _request = await sargoEscrow.getTransactionById(1);
 
@@ -855,6 +895,10 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
           agentName,
           agentPhone,
           agentKey
+          address _clientAccount,
+        string memory _clientName,
+        string memory _clientPhoneNumber,
+        string memory _clientKey
         );
       const _request = await sargoEscrow.getTransactionById(1);
 
@@ -935,6 +979,10 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
           agentName,
           agentPhone,
           agentKey
+          address _clientAccount,
+        string memory _clientName,
+        string memory _clientPhoneNumber,
+        string memory _clientKey
         );
       const _request = await sargoEscrow.getTransactionById(1);
 
@@ -1010,6 +1058,10 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
           agentName,
           agentPhone,
           agentKey
+          address _clientAccount,
+        string memory _clientName,
+        string memory _clientPhoneNumber,
+        string memory _clientKey
         );
 
       const _request = await sargoEscrow.getTransactionById(1);
@@ -1066,6 +1118,10 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
           agentName,
           agentPhone,
           agentKey
+          address _clientAccount,
+        string memory _clientName,
+        string memory _clientPhoneNumber,
+        string memory _clientKey
         );
 
       const _request = await sargoEscrow.getTransactionById(1);
@@ -1155,6 +1211,10 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
           agentName,
           agentPhone,
           agentKey
+          address _clientAccount,
+        string memory _clientName,
+        string memory _clientPhoneNumber,
+        string memory _clientKey
         );
 
       const _request = await sargoEscrow.getTransactionById(1);
@@ -1249,6 +1309,10 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
           agentName,
           agentPhone,
           agentKey
+          address _clientAccount,
+        string memory _clientName,
+        string memory _clientPhoneNumber,
+        string memory _clientKey
         );
 
       const _request = await sargoEscrow.getTransactionById(1);

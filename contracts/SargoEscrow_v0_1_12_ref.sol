@@ -11,13 +11,12 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 
 import "./SargoBase.sol";
 import "./SargoFee.sol";
-import "hardhat/console.sol";
 
 /**
  * @title SargoEscrow
  * @dev Buy, sell, transfer, credit escrow
  */
-contract SargoEscrow_v0_1_11 is
+contract SargoEscrow_v0_1_12_ref is
     SargoBase,
     Initializable,
     UUPSUpgradeable,
@@ -625,7 +624,6 @@ contract SargoEscrow_v0_1_11 is
     //  * @dev Get the token transfer fee rate
     //  */
     // function getTransferFeeRate() public view returns (uint256) {
-    //     console.log(SargoFee(feeAddress).transferFeeRate());
     //     return SargoFee(feeAddress).transferFeeRate();
     // }
 
