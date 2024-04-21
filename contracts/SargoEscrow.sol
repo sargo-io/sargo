@@ -171,48 +171,18 @@ contract SargoEscrow is
      **/
     function _initializeTransaction(
         TransactionType _txType,
-        uint256 _amount,
-        string memory _currencyCode,
-        uint256 _conversionRate,
-        string memory _paymentMethod,
-        string memory _name,
-        string memory _phoneNumber,
-        string memory _clientKey,
-        string memory _agentKey
+        uint256 _amount
     ) private returns (uint256 id) {
         if (nextTxId == 0) {
             nextTxId = 1;
         }
 
         //TODO: Validate refNumber uniqueness
-
         Transaction storage _txn = transactions[nextTxId];
         _txn.id = nextTxId;
         _txn.refNumber = setRefNumber(_txn.id);
         _txn.txType = _txType;
         _txn.status = Status.REQUEST;
-        _addToHistory(msg.sender, _txn.id);
-        //
-
-
-        if (_txType == TransactionType.DEPOSIT) {
-            _txn.clientAccount = msg.sender;
-            _txn.account.clientName = _name;
-            _txn.account.clientPhoneNumber = _phoneNumber;
-        } else if (_txType == TransactionType.WITHDRAW) {
-            _txn.agentAccount = msg.sender;
-            _txn.account.agentName = _name;
-            _txn.account.agentPhoneNumber = _phoneNumber;
-        } else if (_txType == TransactionType.TRANSFER) {
-            _txn.agentAccount = msg.sender;
-            _txn.account.agentName = _name;
-            _txn.account.agentPhoneNumber = _phoneNumber;
-        } else {
-            revert("Invalid tx");
-        }
-
-        _txn.currencyCode = _currencyCode;
-        _txn.conversionRate = _conversionRate;
         _txn.totalAmount =
             _amount +
             (getTreasuryFee(_amount) + getAgentFee(_amount));
@@ -221,10 +191,8 @@ contract SargoEscrow is
         _txn.treasuryFee = getTreasuryFee(_amount);
         _txn.agentApproved = false;
         _txn.clientApproved = false;
-        _txn.paymentMethod = _paymentMethod;
-        _txn.clientKey = _clientKey;
-        _txn.agentKey = _agentKey;
         _txn.timestamp = block.timestamp;
+        _addToHistory(msg.sender, _txn.id);
 
         emit TransactionInitiated(_txn.id, _txn.timestamp, _txn);
         nextTxId++;
@@ -322,23 +290,36 @@ contract SargoEscrow is
         string memory _clientName,
         string memory _clientPhoneNumber,
         string memory _clientKey,
-        //
         address _agentAccount,
         string memory _agentName,
         string memory _agentPhoneNumber,
         string memory _agentKey
     ) public amountGreaterThanZero(_amount) whenNotPaused nonReentrant {
-        _initializeTransaction(
-            TransactionType.DEPOSIT,
-            _amount,
-            _currencyCode,
-            _conversionRate,
-            _paymentMethod,
-            _clientName,
-            _clientPhoneNumber,
-            _clientKey,
-            ""
-        );
+
+        uint256 _txnId = _initializeTransaction(TransactionType.DEPOSIT, _amount);
+
+
+            Transaction storage _txn = transactions[_txnId];
+
+            //client
+            _txn.clientAccount = msg.sender;
+            _txn.account.clientName = _clientName;
+            _txn.account.clientPhoneNumber = _clientPhoneNumber;
+            _txn.clientKey = _clientKey;
+
+            //agent
+            _txn.agentAccount = _agentAccount;
+            _txn.account.agentName = _agentName;
+            _txn.account.agentPhoneNumber = _agentPhoneNumber; 
+            _txn.agentKey = _agentKey;
+           
+
+        _txn.currencyCode = _currencyCode;
+        _txn.conversionRate = _conversionRate;
+        _txn.paymentMethod = _paymentMethod;
+        
+        
+        
     }
 
     /**
@@ -353,23 +334,32 @@ contract SargoEscrow is
         string memory _agentName,
         string memory _agentPhoneNumber,
         string memory _agentKey,
-        //
         address _clientAccount,
         string memory _clientName,
         string memory _clientPhoneNumber,
         string memory _clientKey
     ) public amountGreaterThanZero(_amount) whenNotPaused nonReentrant {
-        _initializeTransaction(
-            TransactionType.WITHDRAW,
-            _amount,
-            _currencyCode,
-            _conversionRate,
-            _paymentMethod,
-            _agentName,
-            _agentPhoneNumber,
-            "",
-            _agentKey
-        );
+
+        uint256 _txnId = _initializeTransaction(TransactionType.WITHDRAW, _amount);
+
+        Transaction storage _txn = transactions[_txnId];
+
+        //agent
+        _txn.agentAccount = msg.sender;
+        _txn.account.agentName = _agentName;
+        _txn.account.agentPhoneNumber = _agentPhoneNumber;
+        _txn.agentKey = _agentKey;
+
+        //client
+        _txn.clientAccount = _clientAccount;
+        _txn.account.clientName = _clientName;
+        _txn.account.clientPhoneNumber = _clientPhoneNumber; 
+        _txn.clientKey = _clientKey;
+       
+        _txn.currencyCode = _currencyCode;
+        _txn.conversionRate = _conversionRate;
+        _txn.paymentMethod = _paymentMethod;
+        
     }
 
     /**
@@ -646,17 +636,7 @@ contract SargoEscrow is
             "Insufficient balance"
         );
 
-        uint256 _txnId = _initializeTransaction(
-            TransactionType.TRANSFER,
-            _amount,
-            _currencyCode,
-            _conversionRate,
-            "TRANSFER",
-            "",
-            "",
-            "",
-            ""
-        );
+        uint256 _txnId = _initializeTransaction(TransactionType.TRANSFER, _amount);
 
         Transaction storage _txn = transactions[_txnId];
 
@@ -670,11 +650,27 @@ contract SargoEscrow is
             "Transfer failed"
         );
 
+        
+        _txn.agentAccount = msg.sender;
+        _txn.account.agentName = "";
+        _txn.account.agentPhoneNumber = "";
+
         _txn.clientAccount = _recipient;
+        _txn.account.clientName = "";
+        _txn.account.clientPhoneNumber = ""; 
+
+        _txn.currencyCode = _currencyCode;
+        _txn.conversionRate = _conversionRate;
+        _txn.paymentMethod = "TRANSFER";
+        _txn.clientKey = "";
+        _txn.agentKey = "";
+
         _txn.status = Status.COMPLETED;
+
+        
         _addToHistory(_recipient, _txn.id);
 
-        emit Transfer(_txn.id, _txn.timestamp, _txn);
+        emit Transfer(_txn.id, _txn.timestamp, _txn);  
     }
 
     /**
@@ -701,17 +697,7 @@ contract SargoEscrow is
             "Insufficient balance"
         );
 
-        uint256 _txnId = _initializeTransaction(
-            TransactionType.TRANSFER,
-            _amount,
-            _currencyCode,
-            _conversionRate,
-            "TRANSFER",
-            "SARGO",
-            "",
-            "",
-            ""
-        );
+        uint256 _txnId = _initializeTransaction(TransactionType.TRANSFER, _amount);
 
         Transaction storage _txn = transactions[_txnId];
 
@@ -720,8 +706,23 @@ contract SargoEscrow is
             IERC20Upgradeable(tokenAddress).transfer(_recipient, _amount),
             "Transfer failed"
         );
+        
+        _txn.agentAccount = msg.sender;
+        _txn.account.agentName = "SARGO";
+        _txn.account.agentPhoneNumber = "";
 
         _txn.clientAccount = _recipient;
+        _txn.account.clientName = "";
+        _txn.account.clientPhoneNumber = ""; 
+
+        _txn.currencyCode = _currencyCode;
+        _txn.conversionRate = _conversionRate;
+        _txn.paymentMethod = "TRANSFER";
+        _txn.clientKey = "";
+        _txn.agentKey = "";
+
+        _txn.status = Status.COMPLETED;
+
         _addToHistory(_recipient, _txn.id);
 
         emit Transfer(_txn.id, _txn.timestamp, _txn);
