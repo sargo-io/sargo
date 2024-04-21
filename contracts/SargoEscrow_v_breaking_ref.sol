@@ -16,7 +16,7 @@ import "./SargoFee.sol";
  * @title SargoEscrow
  * @dev Buy, sell, transfer, credit escrow
  */
-contract SargoEscrow_v0_1_12_ref is
+contract SargoEscrow_v_breaking_ref is
     SargoBase,
     Initializable,
     UUPSUpgradeable,
