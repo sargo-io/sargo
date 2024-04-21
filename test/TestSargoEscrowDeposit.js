@@ -211,6 +211,10 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         clientName,
         clientPhone,
         clientKey,
+        agent,
+        agentName,
+        agentPhone,
+        agentKey,
       } = await loadFixture(deployEscrowFixture);
       const depositRequest = await sargoEscrow
         .connect(client)
@@ -221,17 +225,17 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
           paymentMethod,
           clientName,
           clientPhone,
-          clientKey
-          address _agentAccount,
-        string memory _agentName,
-        string memory _agentPhoneNumber,
-        string memory _agentKey
+          clientKey,
+          agent.address,
+          agentName,
+          agentPhone,
+          agentKey
         );
+
       const _request = await sargoEscrow.getTransactionById(1);
       const _totalAmount = amount + agentFee + treasuryFee;
       const _txFees = agentFee + treasuryFee;
       const _netAmount = _totalAmount - _txFees;
-      const _requests = await sargoEscrow.getRequestsLength();
       const _txs = await sargoEscrow.getAcountHistoryLength(client.address);
 
       expect(_request.id).to.equal(1);
@@ -246,9 +250,8 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
       expect(_request.agentApproved).to.equal(false);
       expect(_request.clientApproved).to.equal(false);
       expect(_request.clientKey).to.not.be.empty;
-      expect(_request.agentKey).to.be.empty;
+      expect(_request.agentKey).to.not.be.empty;
       expect(await sargoEscrow.nextTxId()).to.equal(2);
-      expect(_requests).to.equal(1);
       expect(_txs).to.equal(1);
     });
 
@@ -263,6 +266,10 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         clientName,
         clientPhone,
         clientKey,
+        agent,
+        agentName,
+        agentPhone,
+        agentKey,
       } = await loadFixture(deployEscrowFixture);
 
       const depositRequest = await sargoEscrow
@@ -274,11 +281,11 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
           paymentMethod,
           clientName,
           clientPhone,
-          clientKey
-          address _agentAccount,
-        string memory _agentName,
-        string memory _agentPhoneNumber,
-        string memory _agentKey
+          clientKey,
+          agent.address,
+          agentName,
+          agentPhone,
+          agentKey
         );
 
       const _request = await sargoEscrow.getTransactionById(1);
@@ -291,7 +298,6 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
       const {
         sargoEscrow,
         client,
-        agent,
         amount,
         currencyCode,
         conversionRate,
@@ -299,6 +305,10 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         clientName,
         clientPhone,
         clientKey,
+        agent,
+        agentName,
+        agentPhone,
+        agentKey,
       } = await loadFixture(deployEscrowFixture);
 
       const depositRequest = await sargoEscrow
@@ -310,11 +320,11 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
           paymentMethod,
           clientName,
           clientPhone,
-          clientKey
-          address _agentAccount,
-        string memory _agentName,
-        string memory _agentPhoneNumber,
-        string memory _agentKey
+          clientKey,
+          agent.address,
+          agentName,
+          agentPhone,
+          agentKey
         );
 
       const _requested = await sargoEscrow.getTransactionById(1);
@@ -331,14 +341,11 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
       const {
         sargoEscrow,
         sargoToken,
-        agent,
         client,
         amount,
         currencyCode,
         conversionRate,
         acceptedConversionRate,
-        agentName,
-        agentPhone,
         agentFee,
         treasuryFee,
         fundAmount,
@@ -346,6 +353,9 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         clientName,
         clientPhone,
         clientKey,
+        agent,
+        agentName,
+        agentPhone,
         agentKey,
       } = await loadFixture(deployEscrowFixture);
 
@@ -358,11 +368,11 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
           paymentMethod,
           clientName,
           clientPhone,
-          clientKey
-          address _agentAccount,
-        string memory _agentName,
-        string memory _agentPhoneNumber,
-        string memory _agentKey
+          clientKey,
+          agent.address,
+          agentName,
+          agentPhone,
+          agentKey
         );
       const _request = await sargoEscrow.getTransactionById(1);
 
@@ -379,16 +389,8 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
 
       const acceptDeposit = await sargoEscrow
         .connect(agent)
-        .acceptDeposit(
-          _request.id,
-          agentName,
-          agentPhone,
-          acceptedConversionRate,
-          agentKey
-        );
+        .acceptDeposit(_request.id, acceptedConversionRate);
       const _accepted = await sargoEscrow.getTransactionById(_request.id);
-      const _paired = await sargoEscrow.getPairedLength(agent.address);
-      const _requestsRemoved = await sargoEscrow.getRequestsLength();
 
       expect(_accepted.id).to.equal(1);
       expect(_accepted.agentAccount).to.equal(agent.address);
@@ -406,8 +408,6 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
       expect(_accepted.clientKey).to.not.be.empty;
       expect(_accepted.agentKey).to.not.be.empty;
       expect(_request.requestIndex).to.equal(0);
-      expect(_requestsRemoved).to.equal(0);
-      expect(_paired).to.equal(1);
 
       await expect(depositRequest).to.emit(sargoEscrow, "TransactionInitiated");
       //.withArgs(_request.id, _request.timestamp, _request);
@@ -420,18 +420,18 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
       const {
         sargoEscrow,
         sargoToken,
-        agent,
         client,
         amount,
         currencyCode,
         conversionRate,
-        agentName,
-        agentPhone,
         fundAmount,
         paymentMethod,
         clientName,
         clientPhone,
         clientKey,
+        agent,
+        agentName,
+        agentPhone,
         agentKey,
       } = await loadFixture(deployEscrowFixture);
 
@@ -444,11 +444,11 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
           paymentMethod,
           clientName,
           clientPhone,
-          clientKey
-          address _agentAccount,
-        string memory _agentName,
-        string memory _agentPhoneNumber,
-        string memory _agentKey
+          clientKey,
+          agent.address,
+          agentName,
+          agentPhone,
+          agentKey
         );
       const _request = await sargoEscrow.getTransactionById(1);
 
@@ -459,13 +459,7 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
 
       const acceptDeposit = await sargoEscrow
         .connect(agent)
-        .acceptDeposit(
-          _request.id,
-          agentName,
-          agentPhone,
-          conversionRate,
-          agentKey
-        );
+        .acceptDeposit(_request.id, conversionRate);
 
       const _accepted = await sargoEscrow.getTransactionById(_request.id);
 
@@ -480,14 +474,11 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
       const {
         sargoEscrow,
         sargoToken,
-        agent,
         client,
         treasury,
         amount,
         currencyCode,
         conversionRate,
-        agentName,
-        agentPhone,
         agentFee,
         treasuryFee,
         fundAmount,
@@ -495,6 +486,9 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         clientName,
         clientPhone,
         clientKey,
+        agent,
+        agentName,
+        agentPhone,
         agentKey,
       } = await loadFixture(deployEscrowFixture);
 
@@ -507,11 +501,11 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
           paymentMethod,
           clientName,
           clientPhone,
-          clientKey
-          address _agentAccount,
-        string memory _agentName,
-        string memory _agentPhoneNumber,
-        string memory _agentKey
+          clientKey,
+          agent.address,
+          agentName,
+          agentPhone,
+          agentKey
         );
       const _request = await sargoEscrow.getTransactionById(1);
 
@@ -525,13 +519,7 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
       const _treasuryBalance = await sargoToken.balanceOf(treasury.address);
       const acceptDeposit = await sargoEscrow
         .connect(agent)
-        .acceptDeposit(
-          _request.id,
-          agentName,
-          agentPhone,
-          conversionRate,
-          agentKey
-        );
+        .acceptDeposit(_request.id, conversionRate);
       const _accepted = await sargoEscrow.getTransactionById(_request.id);
       const _escrowBalance = await sargoToken.balanceOf(
         await sargoEscrow.getAddress()
@@ -557,12 +545,6 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         _agentBalance - amount - agentFee - treasuryFee + agentFee;
       const treasuryExpected = _treasuryBalance + treasuryFee;
       const escrowExpected = _escrowBalance - amount - agentFee - treasuryFee;
-      const _pairedClientRemoved = await sargoEscrow.getPairedLength(
-        client.address
-      );
-      const _pairedAgentRemoved = await sargoEscrow.getPairedLength(
-        agent.address
-      );
 
       expect(_agentConfirmed.id).to.equal(1);
       expect(_agentConfirmed.txType).to.equal(0);
@@ -608,7 +590,6 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
     it("Should allow the client to cancel a deposit request", async () => {
       const {
         sargoEscrow,
-        agent,
         client,
         amount,
         currencyCode,
@@ -618,6 +599,10 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         clientName,
         clientPhone,
         clientKey,
+        agent,
+        agentName,
+        agentPhone,
+        agentKey,
       } = await loadFixture(deployEscrowFixture);
 
       const depositRequest = await sargoEscrow
@@ -629,20 +614,17 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
           paymentMethod,
           clientName,
           clientPhone,
-          clientKey
-          address _agentAccount,
-        string memory _agentName,
-        string memory _agentPhoneNumber,
-        string memory _agentKey
+          clientKey,
+          agent.address,
+          agentName,
+          agentPhone,
+          agentKey
         );
       const _request = await sargoEscrow.getTransactionById(1);
       const cancelRequest = await sargoEscrow
         .connect(client)
         .cancelTransaction(_request.id, "reason");
       const _cancelled = await sargoEscrow.getTransactionById(_request.id);
-      const _pairedClientRemoved = await sargoEscrow.getPairedLength(
-        client.address
-      );
 
       expect(_cancelled.id).to.equal(1);
       expect(_cancelled.clientAccount).to.equal(client.address);
@@ -650,7 +632,6 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
       expect(_cancelled.status).to.equal(4);
       expect(_cancelled.agentApproved).to.equal(false);
       expect(_cancelled.clientApproved).to.equal(false);
-      expect(_pairedClientRemoved).to.equal(0);
 
       await expect(depositRequest).to.emit(sargoEscrow, "TransactionInitiated");
       //.withArgs(_request.id, _request.timestamp, _request);
@@ -670,6 +651,10 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         clientName,
         clientPhone,
         clientKey,
+        agent,
+        agentName,
+        agentPhone,
+        agentKey,
       } = await loadFixture(deployEscrowFixture);
 
       const depositRequest = await sargoEscrow
@@ -681,11 +666,11 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
           paymentMethod,
           clientName,
           clientPhone,
-          clientKey
-          address _agentAccount,
-        string memory _agentName,
-        string memory _agentPhoneNumber,
-        string memory _agentKey
+          clientKey,
+          agent.address,
+          agentName,
+          agentPhone,
+          agentKey
         );
       const _request = await sargoEscrow.getTransactionById(1);
 
@@ -705,7 +690,6 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
       const {
         sargoEscrow,
         sargoToken,
-        agent,
         client,
         amount,
         currencyCode,
@@ -715,6 +699,7 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         clientName,
         clientPhone,
         clientKey,
+        agent,
         agentName,
         agentPhone,
         agentKey,
@@ -729,11 +714,11 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
           paymentMethod,
           clientName,
           clientPhone,
-          clientKey
-          address _agentAccount,
-        string memory _agentName,
-        string memory _agentPhoneNumber,
-        string memory _agentKey
+          clientKey,
+          agent.address,
+          agentName,
+          agentPhone,
+          agentKey
         );
       const _request = await sargoEscrow.getTransactionById(1);
 
@@ -743,13 +728,7 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         .approve(await sargoEscrow.getAddress(), fundAmount);
       const acceptDeposit = await sargoEscrow
         .connect(agent)
-        .acceptDeposit(
-          _request.id,
-          agentName,
-          agentPhone,
-          conversionRate,
-          agentKey
-        );
+        .acceptDeposit(_request.id, conversionRate);
       const _accepted = await sargoEscrow.getTransactionById(_request.id);
 
       const disputedTx = await sargoEscrow
@@ -776,7 +755,6 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
       const {
         sargoEscrow,
         sargoToken,
-        agent,
         client,
         amount,
         currencyCode,
@@ -786,6 +764,7 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         clientName,
         clientPhone,
         clientKey,
+        agent,
         agentName,
         agentPhone,
         agentKey,
@@ -800,11 +779,11 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
           paymentMethod,
           clientName,
           clientPhone,
-          clientKey
-          address _agentAccount,
-        string memory _agentName,
-        string memory _agentPhoneNumber,
-        string memory _agentKey
+          clientKey,
+          agent.address,
+          agentName,
+          agentPhone,
+          agentKey
         );
       const _request = await sargoEscrow.getTransactionById(1);
 
@@ -814,13 +793,7 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         .approve(await sargoEscrow.getAddress(), fundAmount);
       const acceptDeposit = await sargoEscrow
         .connect(agent)
-        .acceptDeposit(
-          _request.id,
-          agentName,
-          agentPhone,
-          conversionRate,
-          agentKey
-        );
+        .acceptDeposit(_request.id, conversionRate);
       const _accepted = await sargoEscrow.getTransactionById(_request.id);
 
       const disputedTx = await sargoEscrow
@@ -840,7 +813,6 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         sargoEscrow,
         owner,
         sargoToken,
-        agent,
         client,
         amount,
         currencyCode,
@@ -850,6 +822,7 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         clientName,
         clientPhone,
         clientKey,
+        agent,
         agentName,
         agentPhone,
         agentKey,
@@ -864,11 +837,11 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
           paymentMethod,
           clientName,
           clientPhone,
-          clientKey
-          address _agentAccount,
-        string memory _agentName,
-        string memory _agentPhoneNumber,
-        string memory _agentKey
+          clientKey,
+          agent.address,
+          agentName,
+          agentPhone,
+          agentKey
         );
       const _request = await sargoEscrow.getTransactionById(1);
 
@@ -878,13 +851,7 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         .approve(await sargoEscrow.getAddress(), fundAmount);
       const acceptDeposit = await sargoEscrow
         .connect(agent)
-        .acceptDeposit(
-          _request.id,
-          agentName,
-          agentPhone,
-          conversionRate,
-          agentKey
-        );
+        .acceptDeposit(_request.id, conversionRate);
       const _accepted = await sargoEscrow.getTransactionById(_request.id);
 
       const disputedTx = await sargoEscrow
@@ -918,7 +885,6 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         sargoEscrow,
         owner,
         sargoToken,
-        agent,
         client,
         amount,
         currencyCode,
@@ -928,6 +894,7 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         clientName,
         clientPhone,
         clientKey,
+        agent,
         agentName,
         agentPhone,
         agentKey,
@@ -942,11 +909,11 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
           paymentMethod,
           clientName,
           clientPhone,
-          clientKey
-          address _agentAccount,
-        string memory _agentName,
-        string memory _agentPhoneNumber,
-        string memory _agentKey
+          clientKey,
+          agent.address,
+          agentName,
+          agentPhone,
+          agentKey
         );
       const _request = await sargoEscrow.getTransactionById(1);
 
@@ -956,13 +923,7 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         .approve(await sargoEscrow.getAddress(), fundAmount);
       const acceptDeposit = await sargoEscrow
         .connect(agent)
-        .acceptDeposit(
-          _request.id,
-          agentName,
-          agentPhone,
-          conversionRate,
-          agentKey
-        );
+        .acceptDeposit(_request.id, conversionRate);
       const _accepted = await sargoEscrow.getTransactionById(_request.id);
 
       const disputedTx = await sargoEscrow
@@ -995,7 +956,6 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         owner,
         sargoToken,
         client,
-        agent,
         amount,
         currencyCode,
         conversionRate,
@@ -1003,10 +963,11 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         clientName,
         clientPhone,
         clientKey,
-        agentName,
-        agentPhone,
         acceptedConversionRate,
         fundAmount,
+        agent,
+        agentName,
+        agentPhone,
         agentKey,
       } = await loadFixture(deployEscrowFixture);
 
@@ -1019,11 +980,11 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
           paymentMethod,
           clientName,
           clientPhone,
-          clientKey
-          address _agentAccount,
-        string memory _agentName,
-        string memory _agentPhoneNumber,
-        string memory _agentKey
+          clientKey,
+          agent.address,
+          agentName,
+          agentPhone,
+          agentKey
         );
 
       const _request = await sargoEscrow.getTransactionById(1);
@@ -1036,13 +997,7 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
 
       await sargoEscrow
         .connect(agent)
-        .acceptDeposit(
-          _request.id,
-          agentName,
-          agentPhone,
-          acceptedConversionRate,
-          agentKey
-        );
+        .acceptDeposit(_request.id, acceptedConversionRate);
 
       const _accepted = await sargoEscrow.getTransactionById(_request.id);
 
@@ -1057,7 +1012,6 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         owner,
         sargoToken,
         client,
-        agent,
         amount,
         currencyCode,
         conversionRate,
@@ -1065,10 +1019,11 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         clientName,
         clientPhone,
         clientKey,
-        agentName,
-        agentPhone,
         acceptedConversionRate,
         fundAmount,
+        agent,
+        agentName,
+        agentPhone,
         agentKey,
       } = await loadFixture(deployEscrowFixture);
 
@@ -1081,11 +1036,11 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
           paymentMethod,
           clientName,
           clientPhone,
-          clientKey
-          address _agentAccount,
-        string memory _agentName,
-        string memory _agentPhoneNumber,
-        string memory _agentKey
+          clientKey,
+          agent.address,
+          agentName,
+          agentPhone,
+          agentKey
         );
 
       const _request = await sargoEscrow.getTransactionById(1);
@@ -1098,13 +1053,7 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
 
       await sargoEscrow
         .connect(agent)
-        .acceptDeposit(
-          _request.id,
-          agentName,
-          agentPhone,
-          acceptedConversionRate,
-          agentKey
-        );
+        .acceptDeposit(_request.id, acceptedConversionRate);
 
       const _accepted = await sargoEscrow.getTransactionById(_request.id);
 
@@ -1150,7 +1099,6 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         owner,
         sargoToken,
         client,
-        agent,
         amount,
         currencyCode,
         conversionRate,
@@ -1158,10 +1106,11 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         clientName,
         clientPhone,
         clientKey,
-        agentName,
-        agentPhone,
         acceptedConversionRate,
         fundAmount,
+        agent,
+        agentName,
+        agentPhone,
         agentKey,
         clientClaimAmount,
         agentClaimAmount,
@@ -1176,11 +1125,11 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
           paymentMethod,
           clientName,
           clientPhone,
-          clientKey
-          address _agentAccount,
-        string memory _agentName,
-        string memory _agentPhoneNumber,
-        string memory _agentKey
+          clientKey,
+          agent.address,
+          agentName,
+          agentPhone,
+          agentKey
         );
 
       const _request = await sargoEscrow.getTransactionById(1);
@@ -1193,13 +1142,7 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
 
       await sargoEscrow
         .connect(agent)
-        .acceptDeposit(
-          _request.id,
-          agentName,
-          agentPhone,
-          acceptedConversionRate,
-          agentKey
-        );
+        .acceptDeposit(_request.id, acceptedConversionRate);
 
       const _accepted = await sargoEscrow.getTransactionById(_request.id);
 
@@ -1250,7 +1193,6 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         owner,
         sargoToken,
         client,
-        agent,
         amount,
         currencyCode,
         conversionRate,
@@ -1258,10 +1200,11 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
         clientName,
         clientPhone,
         clientKey,
-        agentName,
-        agentPhone,
         acceptedConversionRate,
         fundAmount,
+        agent,
+        agentName,
+        agentPhone,
         agentKey,
       } = await loadFixture(deployEscrowFixture);
 
@@ -1274,11 +1217,11 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
           paymentMethod,
           clientName,
           clientPhone,
-          clientKey
-          address _agentAccount,
-        string memory _agentName,
-        string memory _agentPhoneNumber,
-        string memory _agentKey
+          clientKey,
+          agent.address,
+          agentName,
+          agentPhone,
+          agentKey
         );
 
       const _request = await sargoEscrow.getTransactionById(1);
@@ -1291,13 +1234,7 @@ describe("==SARGO ESCROW DEPOSIT TESTS ================================", () => 
 
       await sargoEscrow
         .connect(agent)
-        .acceptDeposit(
-          _request.id,
-          agentName,
-          agentPhone,
-          acceptedConversionRate,
-          agentKey
-        );
+        .acceptDeposit(_request.id, acceptedConversionRate);
 
       const _accepted = await sargoEscrow.getTransactionById(_request.id);
 

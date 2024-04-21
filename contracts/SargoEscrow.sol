@@ -11,6 +11,8 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 import "./SargoBase.sol";
 import "./SargoFee.sol";
 
+import "hardhat/console.sol";
+
 /**
  * @title SargoEscrow
  * @dev Buy, sell, transfer, credit escrow
@@ -32,7 +34,7 @@ contract SargoEscrow is
 
     mapping(uint256 => Transaction) private transactions;
     mapping(address => Earning) private earnings;
-    mapping(Status => uint256[]) public requests;
+    mapping(Status => uint256[]) public requests; //deprecate
     mapping(address => uint256[]) public acountHistory;
     mapping(Status => uint256[]) public paired; //deprecate
     mapping(address => uint256[]) public pairing; //deprecate
@@ -298,28 +300,23 @@ contract SargoEscrow is
 
         uint256 _txnId = _initializeTransaction(TransactionType.DEPOSIT, _amount);
 
+        Transaction storage _txn = transactions[_txnId];
 
-            Transaction storage _txn = transactions[_txnId];
+        //client
+        _txn.clientAccount = msg.sender;
+        _txn.account.clientName = _clientName;
+        _txn.account.clientPhoneNumber = _clientPhoneNumber;
+        _txn.clientKey = _clientKey;
 
-            //client
-            _txn.clientAccount = msg.sender;
-            _txn.account.clientName = _clientName;
-            _txn.account.clientPhoneNumber = _clientPhoneNumber;
-            _txn.clientKey = _clientKey;
-
-            //agent
-            _txn.agentAccount = _agentAccount;
-            _txn.account.agentName = _agentName;
-            _txn.account.agentPhoneNumber = _agentPhoneNumber; 
-            _txn.agentKey = _agentKey;
+        //agent
+        _txn.agentAccount = _agentAccount;
+        _txn.account.agentName = _agentName;
+        _txn.account.agentPhoneNumber = _agentPhoneNumber; 
+        _txn.agentKey = _agentKey;
            
-
         _txn.currencyCode = _currencyCode;
         _txn.conversionRate = _conversionRate;
         _txn.paymentMethod = _paymentMethod;
-        
-        
-        
     }
 
     /**
@@ -366,13 +363,7 @@ contract SargoEscrow is
      * @dev Counter-party accepts to fulfill a deposit request
      * @notice The counter-parties are paired by their addresses
      */
-    function acceptDeposit(
-        uint256 _txnId,
-        string memory _agentName,
-        string memory _agentPhoneNumber,
-        uint256 _conversionRate,
-        string memory _agentKey
-    ) public onRequestOnly(_txnId) whenNotPaused nonReentrant {
+    function acceptDeposit(uint256 _txnId, uint256 _conversionRate) public onRequestOnly(_txnId) whenNotPaused nonReentrant {
         Transaction storage _txn = transactions[_txnId];
 
         require(_txn.txType == TransactionType.DEPOSIT, "Deposit only");
@@ -389,10 +380,7 @@ contract SargoEscrow is
 
         _txn.conversionRate = _conversionRate;
         _txn.status = Status.PAIRED;
-        _txn.account.agentName = _agentName;
-        _txn.account.agentPhoneNumber = _agentPhoneNumber;
-        _txn.agentKey = _agentKey;
-
+        
         require(
             IERC20Upgradeable(tokenAddress).transferFrom(
                 _txn.agentAccount,
@@ -411,13 +399,7 @@ contract SargoEscrow is
      * @dev Counter-party accepts to fulfill a withdrawal request
      * @notice The counter-parties are paired by their addresses
      */
-    function acceptWithdrawal(
-        uint256 _txnId,
-        string memory _clientName,
-        string memory _clientPhoneNumber,
-        uint256 _conversionRate,
-        string memory _clientKey
-    ) public onRequestOnly(_txnId) whenNotPaused nonReentrant {
+    function acceptWithdrawal(uint256 _txnId, uint256 _conversionRate) public onRequestOnly(_txnId) whenNotPaused nonReentrant {
         Transaction storage _txn = transactions[_txnId];
 
         require(_txn.txType == TransactionType.WITHDRAW, "Withdraw only");
@@ -434,10 +416,7 @@ contract SargoEscrow is
 
         _txn.conversionRate = _conversionRate;
         _txn.status = Status.PAIRED;
-        _txn.account.clientName = _clientName;
-        _txn.account.clientPhoneNumber = _clientPhoneNumber;
-        _txn.clientKey = _clientKey;
-
+        
         require(
             IERC20Upgradeable(tokenAddress).transferFrom(
                 _txn.agentAccount,
@@ -599,14 +578,6 @@ contract SargoEscrow is
         address _address
     ) public view returns (Earning memory) {
         return earnings[_address];
-    }
-
-    /**
-     * @dev Get the length of transactions in request state
-     * @notice returns the number of transactions on the requests feed
-     **/
-    function getRequestsLength() public view returns (uint256) {
-        return requests[Status.REQUEST].length;
     }
 
     /**
