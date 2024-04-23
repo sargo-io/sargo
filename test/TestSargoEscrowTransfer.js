@@ -30,7 +30,7 @@ describe("==SARGO ESCROW TRANSFER TESTS ================================", () =>
     const fundAmount = ethers.parseUnits("7", "ether");
     const currencyCode = "KES";
     const conversionRate = ethers.parseUnits("140", "ether");
-    const acceptedConversionRate = ethers.parseUnits("145", "ether");
+    const acceptedConversionRate = ethers.parseUnits("140", "ether");
     const clientName = "clientName";
     const clientPhone = "254722000000";
     const agentName = "agentName";

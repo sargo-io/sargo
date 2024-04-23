@@ -297,24 +297,22 @@ contract SargoEscrow is
     ) public amountGreaterThanZero(_amount) whenNotPaused nonReentrant {
 
         uint256 _txnId = _initializeTransaction(TransactionType.DEPOSIT, _amount);
-
         Transaction storage _txn = transactions[_txnId];
-
-        //client
         _txn.clientAccount = msg.sender;
         _txn.account.clientName = _clientName;
         _txn.account.clientPhoneNumber = _clientPhoneNumber;
         _txn.clientKey = _clientKey;
-
-        //agent
         _txn.agentAccount = _agentAccount;
         _txn.account.agentName = _agentName;
         _txn.account.agentPhoneNumber = _agentPhoneNumber; 
         _txn.agentKey = _agentKey;
-           
         _txn.currencyCode = _currencyCode;
         _txn.conversionRate = _conversionRate;
         _txn.paymentMethod = _paymentMethod;
+
+        require(msg.sender != _txn.agentAccount, "Same account");
+
+        _acceptDeposit(_txnId);
     }
 
     /**
@@ -336,39 +334,32 @@ contract SargoEscrow is
     ) public amountGreaterThanZero(_amount) whenNotPaused nonReentrant {
 
         uint256 _txnId = _initializeTransaction(TransactionType.WITHDRAW, _amount);
-
         Transaction storage _txn = transactions[_txnId];
-
-        //agent
         _txn.agentAccount = msg.sender;
         _txn.account.agentName = _agentName;
         _txn.account.agentPhoneNumber = _agentPhoneNumber;
         _txn.agentKey = _agentKey;
-
-        //client
         _txn.clientAccount = _clientAccount;
         _txn.account.clientName = _clientName;
         _txn.account.clientPhoneNumber = _clientPhoneNumber; 
         _txn.clientKey = _clientKey;
-       
         _txn.currencyCode = _currencyCode;
         _txn.conversionRate = _conversionRate;
         _txn.paymentMethod = _paymentMethod;
-        
+
+        require(msg.sender != _txn.clientAccount, "Same account");
+
+        _acceptWithdrawal(_txnId);
     }
 
     /**
      * @dev Counter-party accepts to fulfill a deposit request
      * @notice The counter-parties are paired by their addresses
      */
-    function acceptDeposit(uint256 _txnId, uint256 _conversionRate) public onRequestOnly(_txnId) whenNotPaused nonReentrant {
+    function _acceptDeposit(uint256 _txnId) private onRequestOnly(_txnId) whenNotPaused {
         Transaction storage _txn = transactions[_txnId];
 
         require(_txn.txType == TransactionType.DEPOSIT, "Deposit only");
-        require(msg.sender != _txn.clientAccount, "Agent only");
-
-        _txn.agentAccount = msg.sender;
-
         require(
             IERC20Upgradeable(tokenAddress).balanceOf(
                 address(_txn.agentAccount)
@@ -376,7 +367,6 @@ contract SargoEscrow is
             "Insufficient balance"
         );
 
-        _txn.conversionRate = _conversionRate;
         _txn.status = Status.PAIRED;
         
         require(
@@ -387,6 +377,9 @@ contract SargoEscrow is
             ),
             "Insufficient balance"
         );
+
+        //where to store and check the timer based on the listing time limit 
+        cancelTransaction(_txnId, "Auto Cancelled");
 
         _addToHistory(msg.sender, _txn.id);
 
@@ -397,14 +390,10 @@ contract SargoEscrow is
      * @dev Counter-party accepts to fulfill a withdrawal request
      * @notice The counter-parties are paired by their addresses
      */
-    function acceptWithdrawal(uint256 _txnId, uint256 _conversionRate) public onRequestOnly(_txnId) whenNotPaused nonReentrant {
+    function _acceptWithdrawal(uint256 _txnId) private onRequestOnly(_txnId) whenNotPaused {
         Transaction storage _txn = transactions[_txnId];
 
         require(_txn.txType == TransactionType.WITHDRAW, "Withdraw only");
-        require(msg.sender != _txn.agentAccount, "Client only");
-
-        _txn.clientAccount = msg.sender;
-
         require(
             IERC20Upgradeable(tokenAddress).balanceOf(
                 address(_txn.agentAccount)
@@ -412,7 +401,6 @@ contract SargoEscrow is
             "Insufficient balance"
         );
 
-        _txn.conversionRate = _conversionRate;
         _txn.status = Status.PAIRED;
         
         require(
@@ -423,6 +411,9 @@ contract SargoEscrow is
             ),
             "Insufficient balance"
         );
+
+        //where to store and check the timer based on the listing time limit 
+        cancelTransaction(_txnId, "Auto Cancelled");
 
         _addToHistory(msg.sender, _txn.id);
 
@@ -478,6 +469,10 @@ contract SargoEscrow is
         string memory _reason
     ) public onRequestOnly(_txnId) whenNotPaused nonReentrant {
         Transaction storage _txn = transactions[_txnId];
+
+        //cancel when on request status
+
+        //cancel when paired status, both client and agent have not approved
 
         _txn.totalAmount = 0;
         _txn.agentFee = 0;
