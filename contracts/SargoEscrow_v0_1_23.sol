@@ -15,7 +15,7 @@ import "hardhat/console.sol";
  * @title SargoEscrow
  * @dev Buy, sell, transfer, credit escrow
  */
-contract SargoEscrow is
+contract SargoEscrow_v0_1_23 is
     SargoBase,
     Initializable,
     UUPSUpgradeable,
@@ -548,21 +548,21 @@ contract SargoEscrow is
      * @dev Compute the agent fee
      */
     function getAgentFee(uint256 _amount) public pure returns (uint256) {
-        return (_amount * getAgentFeeRate()) / 1 ether;
+        return (_amount * getAgentFeeRate()) / 1 ether / 100;
     }
 
     /**
      * @dev Get the treasury fee rate
      */
     function getTreasuryFeeRate() public pure returns (uint256) {
-        return 0.01 ether;
+        return 0.5 ether;
     }
 
     /**
      * @dev Compute treasury fee
      */
     function getTreasuryFee(uint256 _amount) public pure returns (uint256) {
-        return (_amount * getTreasuryFeeRate()) / 1 ether;
+        return (_amount * getTreasuryFeeRate()) / 1 ether / 100;
     }
 
     /**

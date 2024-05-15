@@ -25,8 +25,8 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
     );
 
     const amount = ethers.parseUnits("1", "ether");
-    const agentFee = ethers.parseUnits("0.005", "ether");
-    const treasuryFee = ethers.parseUnits("0.005", "ether");
+    const agentFee = ethers.parseUnits("0", "ether");
+    const treasuryFee = ethers.parseUnits("0.01", "ether");
     const fundAmount = ethers.parseUnits("7", "ether");
     const currencyCode = "KES";
     const conversionRate = ethers.parseUnits("140", "ether");
@@ -39,8 +39,8 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
     const clientKey = "clientkey";
     const agentKey = "agentKey";
 
-    const agentFeeRate = ethers.parseUnits("0.5", "ether");
-    const treasuryFeeRate = ethers.parseUnits("0.5", "ether");
+    const agentFeeRate = ethers.parseUnits("0", "ether");
+    const treasuryFeeRate = ethers.parseUnits("0.01", "ether");
     const transferFeeRate = ethers.parseUnits("0.01", "ether");
 
     const clientClaimAmount = ethers.parseUnits("0.5", "ether");
@@ -315,14 +315,14 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
           clientKey
         );
 
-      const _requested = await sargoEscrow.getTransactionById(1);
+      const _request = await sargoEscrow.getTransactionById(1);
 
-      expect(_requested.id).to.equal(1);
-      expect(_requested.agentAccount).to.equal(agent.address);
-      expect(_requested.txType).to.equal(1);
-      expect(_requested.status).to.equal(1);
-      expect(_requested.agentApproved).to.equal(false);
-      expect(_requested.clientApproved).to.equal(false);
+      expect(_request.id).to.equal(1);
+      expect(_request.agentAccount).to.equal(agent.address);
+      expect(_request.txType).to.equal(1);
+      expect(_request.status).to.equal(1);
+      expect(_request.agentApproved).to.equal(false);
+      expect(_request.clientApproved).to.equal(false);
     });
 
     it("Should allow the client and agent confirm fiat payment received - withdraw transaction", async () => {
@@ -483,6 +483,8 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
         .connect(agent)
         .cancelTransaction(_request.id, "reason");
       const _cancelled = await sargoEscrow.getTransactionById(_request.id);
+
+      //TODO: check for amount refunded when paired
 
       expect(_cancelled.id).to.equal(1);
       expect(_cancelled.agentAccount).to.equal(agent.address);

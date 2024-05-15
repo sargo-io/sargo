@@ -25,8 +25,8 @@ describe("==SARGO ESCROW TRANSFER TESTS ================================", () =>
     );
 
     const amount = ethers.parseUnits("1", "ether");
-    const agentFee = ethers.parseUnits("0.005", "ether");
-    const treasuryFee = ethers.parseUnits("0.005", "ether");
+    const agentFee = ethers.parseUnits("0", "ether");
+    const treasuryFee = ethers.parseUnits("0.01", "ether");
     const fundAmount = ethers.parseUnits("7", "ether");
     const currencyCode = "KES";
     const conversionRate = ethers.parseUnits("140", "ether");
@@ -39,8 +39,8 @@ describe("==SARGO ESCROW TRANSFER TESTS ================================", () =>
     const clientKey = "clientkey";
     const agentKey = "agentKey";
 
-    const agentFeeRate = ethers.parseUnits("0.5", "ether");
-    const treasuryFeeRate = ethers.parseUnits("0.5", "ether");
+    const agentFeeRate = ethers.parseUnits("0", "ether");
+    const treasuryFeeRate = ethers.parseUnits("0.01", "ether");
     const transferFeeRate = ethers.parseUnits("0.01", "ether");
 
     //ERC20 contract
