@@ -9,13 +9,13 @@ import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "./SargoBase.sol";
-import "./SargoFee.sol";
+import "hardhat/console.sol";
 
 /**
  * @title SargoEscrow
  * @dev Buy, sell, transfer, credit escrow
  */
-contract SargoEscrow_v0_1_12 is
+contract SargoEscrow_v0_1_26 is
     SargoBase,
     Initializable,
     UUPSUpgradeable,
@@ -27,7 +27,7 @@ contract SargoEscrow_v0_1_12 is
     uint256 public nextTxId;
     address public tokenAddress;
     address public treasuryAddress;
-    address public feeAddress;
+    address public feeAddress; //deprecated
     bytes32 private constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     mapping(uint256 => Transaction) private transactions;
@@ -192,9 +192,7 @@ contract SargoEscrow_v0_1_12 is
         _txn.agentApproved = false;
         _txn.clientApproved = false;
         _txn.timestamp = block.timestamp;
-        _addToHistory(msg.sender, _txn.id);
 
-        emit TransactionInitiated(_txn.id, _txn.timestamp, _txn);
         nextTxId++;
 
         return _txn.id;
@@ -241,6 +239,7 @@ contract SargoEscrow_v0_1_12 is
         }
 
         /* fulfillment fee */
+        if(_txn.agentFee > 0) {
         require(
             IERC20Upgradeable(tokenAddress).transfer(
                 _earnAccount,
@@ -251,15 +250,18 @@ contract SargoEscrow_v0_1_12 is
 
         /* Sum up agent fee earned */
         _earn(_earnAccount, _txn.agentFee);
+        }
 
         /* Treasury fee */
-        require(
-            IERC20Upgradeable(tokenAddress).transfer(
-                treasuryAddress,
-                _txn.treasuryFee
-            ),
-            "Treasury fee failed."
-        );
+        if(_txn.treasuryFee > 0) {
+            require(
+                IERC20Upgradeable(tokenAddress).transfer(
+                    treasuryAddress,
+                    _txn.treasuryFee
+                ),
+                "Treasury fee failed."
+            );
+        }
 
         _txn.status = Status.COMPLETED;
 
@@ -299,22 +301,24 @@ contract SargoEscrow_v0_1_12 is
         uint256 _txnId = _initializeTransaction(TransactionType.DEPOSIT, _amount);
 
         Transaction storage _txn = transactions[_txnId];
-
-        //client
         _txn.clientAccount = msg.sender;
         _txn.account.clientName = _clientName;
         _txn.account.clientPhoneNumber = _clientPhoneNumber;
         _txn.clientKey = _clientKey;
-
-        //agent
         _txn.agentAccount = _agentAccount;
         _txn.account.agentName = _agentName;
         _txn.account.agentPhoneNumber = _agentPhoneNumber; 
         _txn.agentKey = _agentKey;
-           
         _txn.currencyCode = _currencyCode;
         _txn.conversionRate = _conversionRate;
         _txn.paymentMethod = _paymentMethod;
+
+        _addToHistory(_txn.clientAccount, _txn.id);
+        _addToHistory(_txn.agentAccount, _txn.id);
+
+        require(msg.sender != _txn.agentAccount, "Same account");
+
+        emit TransactionInitiated(_txn.id, _txn.timestamp, _txn);
     }
 
     /**
@@ -336,38 +340,37 @@ contract SargoEscrow_v0_1_12 is
     ) public amountGreaterThanZero(_amount) whenNotPaused nonReentrant {
 
         uint256 _txnId = _initializeTransaction(TransactionType.WITHDRAW, _amount);
-
         Transaction storage _txn = transactions[_txnId];
-
-        //agent
         _txn.agentAccount = msg.sender;
         _txn.account.agentName = _agentName;
         _txn.account.agentPhoneNumber = _agentPhoneNumber;
         _txn.agentKey = _agentKey;
-
-        //client
         _txn.clientAccount = _clientAccount;
         _txn.account.clientName = _clientName;
         _txn.account.clientPhoneNumber = _clientPhoneNumber; 
         _txn.clientKey = _clientKey;
-       
         _txn.currencyCode = _currencyCode;
         _txn.conversionRate = _conversionRate;
         _txn.paymentMethod = _paymentMethod;
-        
+
+        _addToHistory(_txn.agentAccount, _txn.id);
+        _addToHistory(_txn.clientAccount, _txn.id);
+
+        require(msg.sender != _txn.clientAccount, "Same account");
+
+        emit TransactionInitiated(_txn.id, _txn.timestamp, _txn);
+
+        _acceptWithdrawal(_txn.id);
     }
 
     /**
      * @dev Counter-party accepts to fulfill a deposit request
      * @notice The counter-parties are paired by their addresses
      */
-    function acceptDeposit(uint256 _txnId, uint256 _conversionRate) public onRequestOnly(_txnId) whenNotPaused nonReentrant {
+    function acceptDeposit(uint256 _txnId) public onRequestOnly(_txnId) whenNotPaused {
         Transaction storage _txn = transactions[_txnId];
-
         require(_txn.txType == TransactionType.DEPOSIT, "Deposit only");
-        require(msg.sender != _txn.clientAccount, "Agent only");
-
-        _txn.agentAccount = msg.sender;
+        require(msg.sender == _txn.agentAccount, "Agent only");
 
         require(
             IERC20Upgradeable(tokenAddress).balanceOf(
@@ -376,9 +379,8 @@ contract SargoEscrow_v0_1_12 is
             "Insufficient balance"
         );
 
-        _txn.conversionRate = _conversionRate;
         _txn.status = Status.PAIRED;
-        
+
         require(
             IERC20Upgradeable(tokenAddress).transferFrom(
                 _txn.agentAccount,
@@ -388,7 +390,8 @@ contract SargoEscrow_v0_1_12 is
             "Insufficient balance"
         );
 
-        _addToHistory(msg.sender, _txn.id);
+        //where to store and check the timer based on the listing time limit 
+        //cancelTransaction(_txnId, "Auto Cancelled");
 
         emit RequestAccepted(_txn.id, _txn.timestamp, _txn);
     }
@@ -397,13 +400,11 @@ contract SargoEscrow_v0_1_12 is
      * @dev Counter-party accepts to fulfill a withdrawal request
      * @notice The counter-parties are paired by their addresses
      */
-    function acceptWithdrawal(uint256 _txnId, uint256 _conversionRate) public onRequestOnly(_txnId) whenNotPaused nonReentrant {
+    function _acceptWithdrawal(uint256 _txnId) private onRequestOnly(_txnId) whenNotPaused {
         Transaction storage _txn = transactions[_txnId];
 
         require(_txn.txType == TransactionType.WITHDRAW, "Withdraw only");
-        require(msg.sender != _txn.agentAccount, "Client only");
-
-        _txn.clientAccount = msg.sender;
+        require(msg.sender == _txn.agentAccount, "Agent only");
 
         require(
             IERC20Upgradeable(tokenAddress).balanceOf(
@@ -412,9 +413,8 @@ contract SargoEscrow_v0_1_12 is
             "Insufficient balance"
         );
 
-        _txn.conversionRate = _conversionRate;
         _txn.status = Status.PAIRED;
-        
+
         require(
             IERC20Upgradeable(tokenAddress).transferFrom(
                 _txn.agentAccount,
@@ -424,7 +424,8 @@ contract SargoEscrow_v0_1_12 is
             "Insufficient balance"
         );
 
-        _addToHistory(msg.sender, _txn.id);
+        //where to store and check the timer based on the listing time limit 
+        //cancelTransaction(_txnId, "Auto Cancelled");
 
         emit RequestAccepted(_txn.id, _txn.timestamp, _txn);
     }
@@ -476,13 +477,19 @@ contract SargoEscrow_v0_1_12 is
     function cancelTransaction(
         uint256 _txnId,
         string memory _reason
-    ) public onRequestOnly(_txnId) whenNotPaused nonReentrant {
+    ) public whenNotPaused nonReentrant {
         Transaction storage _txn = transactions[_txnId];
 
+        require(_txn.status == Status.REQUEST || _txn.status == Status.PAIRED, "Not REQUEST_PAIRED");
+        
         _txn.totalAmount = 0;
         _txn.agentFee = 0;
         _txn.treasuryFee = 0;
         _txn.status = Status.CANCELLED;
+
+        if(_txn.status == Status.PAIRED && !_txn.clientApproved && !_txn.agentApproved) {
+            credit(_txn.agentAccount, _txn.totalAmount, _txn.currencyCode, _txn.conversionRate);
+        }
 
         emit TransactionCancelled(_txn.id, _txn.timestamp, _txn, _reason);
     }
@@ -536,37 +543,36 @@ contract SargoEscrow_v0_1_12 is
     /**
      * @dev Get the agent fee rate
      */
-    function getAgentFeeRate() public view returns (uint256) {
-        return SargoFee(feeAddress).agentFeeRate();
+    function getAgentFeeRate() public pure returns (uint256) {
+        return 0 ether;
     }
 
     /**
      * @dev Compute the agent fee
      */
-    function getAgentFee(uint256 _amount) public view returns (uint256) {
-        return (_amount * SargoFee(feeAddress).agentFeeRate()) / 1 ether / 100;
+    function getAgentFee(uint256 _amount) public pure returns (uint256) {
+        return (_amount * getAgentFeeRate()) / 1 ether;
     }
 
     /**
      * @dev Get the treasury fee rate
      */
-    function getTreasuryFeeRate() public view returns (uint256) {
-        return SargoFee(feeAddress).treasuryFeeRate();
+    function getTreasuryFeeRate() public pure returns (uint256) {
+        return 0.01 ether;
     }
 
     /**
      * @dev Compute treasury fee
      */
-    function getTreasuryFee(uint256 _amount) public view returns (uint256) {
-        return
-            (_amount * SargoFee(feeAddress).treasuryFeeRate()) / 1 ether / 100;
+    function getTreasuryFee(uint256 _amount) public pure returns (uint256) {
+        return (_amount * getTreasuryFeeRate()) / 1 ether;
     }
 
     /**
      * @dev Get the token transfer fee rate
      */
-    function getTransferFeeRate() public view returns (uint256) {
-        return SargoFee(feeAddress).transferFeeRate();
+    function getTransferFeeRate() public pure returns (uint256) {
+        return 0.01 ether;
     }
 
     /**
@@ -610,6 +616,7 @@ contract SargoEscrow_v0_1_12 is
         Transaction storage _txn = transactions[_txnId];
 
         require(_txn.txType == TransactionType.TRANSFER, "Invalid tx type");
+
         require(
             IERC20Upgradeable(tokenAddress).transferFrom(
                 msg.sender,
@@ -619,7 +626,6 @@ contract SargoEscrow_v0_1_12 is
             "Transfer failed"
         );
 
-        
         _txn.agentAccount = msg.sender;
         _txn.account.agentName = "";
         _txn.account.agentPhoneNumber = "";
@@ -636,8 +642,8 @@ contract SargoEscrow_v0_1_12 is
 
         _txn.status = Status.COMPLETED;
 
-        
-        _addToHistory(_recipient, _txn.id);
+        _addToHistory(_txn.agentAccount, _txn.id);
+        _addToHistory(_txn.clientAccount, _txn.id);
 
         emit Transfer(_txn.id, _txn.timestamp, _txn);  
     }
@@ -692,7 +698,8 @@ contract SargoEscrow_v0_1_12 is
 
         _txn.status = Status.COMPLETED;
 
-        _addToHistory(_recipient, _txn.id);
+        _addToHistory(_txn.agentAccount, _txn.id);
+        _addToHistory(_txn.clientAccount, _txn.id);
 
         emit Transfer(_txn.id, _txn.timestamp, _txn);
     }

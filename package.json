@@ -1,6 +1,6 @@
 {
   "name": "sargo",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "A Decentralized Last-Mile Peer-To-Peer On-And Off-Ramp On Celo.",
   "main": "index.js",
   "scripts": {

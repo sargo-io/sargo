@@ -192,8 +192,7 @@ contract SargoEscrow is
         _txn.agentApproved = false;
         _txn.clientApproved = false;
         _txn.timestamp = block.timestamp;
-        
-        emit TransactionInitiated(_txn.id, _txn.timestamp, _txn);
+
         nextTxId++;
 
         return _txn.id;
@@ -318,6 +317,8 @@ contract SargoEscrow is
         _addToHistory(_txn.agentAccount, _txn.id);
 
         require(msg.sender != _txn.agentAccount, "Same account");
+
+        emit TransactionInitiated(_txn.id, _txn.timestamp, _txn);
     }
 
     /**
@@ -357,6 +358,8 @@ contract SargoEscrow is
 
         require(msg.sender != _txn.clientAccount, "Same account");
 
+        emit TransactionInitiated(_txn.id, _txn.timestamp, _txn);
+
         _acceptWithdrawal(_txn.id);
     }
 
@@ -367,7 +370,7 @@ contract SargoEscrow is
     function acceptDeposit(uint256 _txnId) public onRequestOnly(_txnId) whenNotPaused {
         Transaction storage _txn = transactions[_txnId];
         require(_txn.txType == TransactionType.DEPOSIT, "Deposit only");
-        // require(msg.sender != _txn.clientAccount, "Agent only");
+        require(msg.sender == _txn.agentAccount, "Agent only");
 
         require(
             IERC20Upgradeable(tokenAddress).balanceOf(
@@ -377,7 +380,7 @@ contract SargoEscrow is
         );
 
         _txn.status = Status.PAIRED;
-        
+
         require(
             IERC20Upgradeable(tokenAddress).transferFrom(
                 _txn.agentAccount,
@@ -401,7 +404,7 @@ contract SargoEscrow is
         Transaction storage _txn = transactions[_txnId];
 
         require(_txn.txType == TransactionType.WITHDRAW, "Withdraw only");
-        //require(msg.sender != _txn.agentAccount, "Client only");
+        require(msg.sender == _txn.agentAccount, "Agent only");
 
         require(
             IERC20Upgradeable(tokenAddress).balanceOf(
@@ -411,7 +414,7 @@ contract SargoEscrow is
         );
 
         _txn.status = Status.PAIRED;
-        
+
         require(
             IERC20Upgradeable(tokenAddress).transferFrom(
                 _txn.agentAccount,
@@ -613,6 +616,7 @@ contract SargoEscrow is
         Transaction storage _txn = transactions[_txnId];
 
         require(_txn.txType == TransactionType.TRANSFER, "Invalid tx type");
+
         require(
             IERC20Upgradeable(tokenAddress).transferFrom(
                 msg.sender,
