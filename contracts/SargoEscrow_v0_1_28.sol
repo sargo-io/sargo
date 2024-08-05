@@ -15,7 +15,7 @@ import "hardhat/console.sol";
  * @title SargoEscrow
  * @dev Buy, sell, transfer, credit escrow
  */
-contract SargoEscrow_v0_1_28 is
+contract SargoEscrow is
     SargoBase,
     Initializable,
     UUPSUpgradeable,
