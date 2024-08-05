@@ -263,6 +263,7 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
       expect(_request.clientKey).to.not.be.empty;
       expect(_request.agentKey).to.not.be.empty;
       expect(_request.requestIndex).to.equal(0);
+      expect(_request.timestamp).to.greaterThan(0);
 
       await expect(withdrawRequest).to.emit(
         sargoEscrow,
@@ -325,7 +326,7 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
       expect(_request.clientApproved).to.equal(false);
     });
 
-    it("Should allow the client and agent confirm fiat payment received - withdraw transaction", async () => {
+    it("Should allow the client and agent to confirm fiat payment received - withdraw transaction", async () => {
       const {
         sargoEscrow,
         sargoToken,
@@ -403,6 +404,12 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
       expect(_agentConfirmed.status).to.equal(3);
       expect(_agentConfirmed.agentApproved).to.equal(true);
       expect(_agentConfirmed.clientApproved).to.equal(true);
+
+      expect(_clientConfirmed.timestamp).to.greaterThan(_request.timestamp);
+      expect(_agentConfirmed.timestamp).to.greaterThan(
+        _clientConfirmed.timestamp
+      );
+
       expect(await sargoToken.balanceOf(client.address)).to.equal(
         clientExpected
       );
@@ -492,6 +499,7 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
       expect(_cancelled.status).to.equal(4);
       expect(_cancelled.agentApproved).to.equal(false);
       expect(_cancelled.clientApproved).to.equal(false);
+      expect(_cancelled.timestamp).to.greaterThan(_request.timestamp);
 
       await expect(withdrawRequest).to.emit(
         sargoEscrow,
@@ -612,6 +620,7 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
       expect(_disputed.clientAccount).to.equal(client.address);
       expect(_disputed.account.clientName).to.equal(clientName);
       expect(_disputed.account.clientPhoneNumber).to.equal(clientPhone);
+      expect(_disputed.timestamp).to.greaterThan(_request.timestamp);
 
       await expect(withdrawRequest).to.emit(
         sargoEscrow,
@@ -679,7 +688,7 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
       //.withArgs(_disputed.id, _disputed.timestamp, _disputed, "reason");
     });
 
-    it("Should allow for a disputed withdraw transaction to be flagged as claim", async () => {
+    it("Should allow for a disputed withdraw transaction to be flagged as a claim", async () => {
       const {
         sargoEscrow,
         sargoToken,
@@ -739,6 +748,7 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
       expect(_claimed.clientAccount).to.equal(client.address);
       expect(_claimed.account.clientName).to.equal(clientName);
       expect(_claimed.account.clientPhoneNumber).to.equal(clientPhone);
+      expect(_claimed.timestamp).to.greaterThan(_disputed.timestamp);
 
       await expect(withdrawRequest).to.emit(
         sargoEscrow,
@@ -867,6 +877,7 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
       await sargoEscrow.connect(owner).transactionStatus(_request.id, 2);
       const _statusChanged = await sargoEscrow.getTransactionById(1);
       expect(_statusChanged.status).to.equal(2);
+      expect(_statusChanged.timestamp).to.greaterThan(_request.timestamp);
     });
 
     it("Should allow the owner to refund whole amount to a counter-party in a withdraw transaction in claim", async () => {
@@ -943,6 +954,7 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
       expect(
         await sargoToken.balanceOf(await sargoEscrow.getAddress())
       ).to.equal(_escrowBalance - _claimed.netAmount);
+      expect(_refunded.timestamp).to.greaterThan(_claimed.timestamp);
 
       await expect(refundTx).to.emit(sargoEscrow, "TransactionResolved");
       //.withArgs(_refunded.id, _refunded.timestamp, _refunded, "resolution");
@@ -1029,6 +1041,7 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
       expect(
         await sargoToken.balanceOf(await sargoEscrow.getAddress())
       ).to.equal(_escrowBalance - _claimed.netAmount);
+      expect(_refunded.timestamp).to.greaterThan(_claimed.timestamp);
 
       await expect(refundTx).to.emit(sargoEscrow, "TransactionResolved");
       //.withArgs(_refunded.id, _refunded.timestamp, _refunded, "resolution");
@@ -1096,6 +1109,8 @@ describe("==SARGO ESCROW WITHDRAW TESTS ================================", () =>
       const _voided = await sargoEscrow.getTransactionById(1);
 
       expect(_voided.status).to.equal(7);
+      expect(_voided.timestamp).to.greaterThan(_claimed.timestamp);
+
       await expect(voidTx).to.emit(sargoEscrow, "TransactionResolved");
       //.withArgs(_voided.id, _voided.timestamp, _voided, "resolution");
     });

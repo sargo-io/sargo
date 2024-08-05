@@ -15,7 +15,7 @@ import "hardhat/console.sol";
  * @title SargoEscrow
  * @dev Buy, sell, transfer, credit escrow
  */
-contract SargoEscrow_v0_1_26 is
+contract SargoEscrow_v0_1_28 is
     SargoBase,
     Initializable,
     UUPSUpgradeable,
@@ -264,6 +264,7 @@ contract SargoEscrow_v0_1_26 is
         }
 
         _txn.status = Status.COMPLETED;
+        _txn.timestamp = block.timestamp;
 
         emit TransactionCompleted(_txn.id, _txn.timestamp, _txn);
     }
@@ -380,6 +381,7 @@ contract SargoEscrow_v0_1_26 is
         );
 
         _txn.status = Status.PAIRED;
+        _txn.timestamp = block.timestamp;
 
         require(
             IERC20Upgradeable(tokenAddress).transferFrom(
@@ -414,6 +416,7 @@ contract SargoEscrow_v0_1_26 is
         );
 
         _txn.status = Status.PAIRED;
+        _txn.timestamp = block.timestamp;
 
         require(
             IERC20Upgradeable(tokenAddress).transferFrom(
@@ -442,6 +445,7 @@ contract SargoEscrow_v0_1_26 is
         require(msg.sender == _txn.clientAccount, "Client only");
         require(!_txn.clientApproved, "Client confirmed");
         _txn.clientApproved = true;
+        _txn.timestamp = block.timestamp;
 
         emit ClientConfirmed(_txn.id, _txn.timestamp, _txn);
 
@@ -462,6 +466,7 @@ contract SargoEscrow_v0_1_26 is
         require(msg.sender == _txn.agentAccount, "Agent only");
         require(!_txn.agentApproved, "Agent confirmed");
         _txn.agentApproved = true;
+        _txn.timestamp = block.timestamp;
 
         emit AgentConfirmed(_txn.id, _txn.timestamp, _txn);
 
@@ -486,6 +491,7 @@ contract SargoEscrow_v0_1_26 is
         _txn.agentFee = 0;
         _txn.treasuryFee = 0;
         _txn.status = Status.CANCELLED;
+        _txn.timestamp = block.timestamp;
 
         if(_txn.status == Status.PAIRED && !_txn.clientApproved && !_txn.agentApproved) {
             credit(_txn.agentAccount, _txn.totalAmount, _txn.currencyCode, _txn.conversionRate);
@@ -512,6 +518,8 @@ contract SargoEscrow_v0_1_26 is
         );
 
         _txn.status = Status.DISPUTED;
+        _txn.timestamp = block.timestamp;
+
         emit TransactionDisputed(_txn.id, _txn.timestamp, _txn, _reason);
     }
 
@@ -527,6 +535,8 @@ contract SargoEscrow_v0_1_26 is
         Transaction storage _txn = transactions[_txnId];
         require(_txn.status == Status.DISPUTED, "DISPUTED");
         _txn.status = Status.CLAIMED;
+        _txn.timestamp = block.timestamp;
+
         emit TransactionClaimed(_txn.id, _txn.timestamp, _txn, _resolution);
     }
 
@@ -697,6 +707,7 @@ contract SargoEscrow_v0_1_26 is
         _txn.agentKey = "";
 
         _txn.status = Status.COMPLETED;
+        _txn.timestamp = block.timestamp;
 
         _addToHistory(_txn.agentAccount, _txn.id);
         _addToHistory(_txn.clientAccount, _txn.id);
@@ -716,6 +727,7 @@ contract SargoEscrow_v0_1_26 is
         require(_txn.status != Status.REQUEST, "Invalid tx Status");
 
         _txn.status = _status;
+        _txn.timestamp = block.timestamp;
 
         emit TransactionStatus(_txn.id, _txn.timestamp, _txn);
     }
@@ -770,6 +782,7 @@ contract SargoEscrow_v0_1_26 is
         _txn.agentFee = 0;
         _txn.treasuryFee = 0;
         _txn.status = Status.REFUNDED;
+        _txn.timestamp = block.timestamp;
 
         emit TransactionResolved(_txn.id, _txn.timestamp, _txn, _resolution);
     }
@@ -789,6 +802,7 @@ contract SargoEscrow_v0_1_26 is
         _txn.agentFee = 0;
         _txn.treasuryFee = 0;
         _txn.status = Status.VOIDED;
+        _txn.timestamp = block.timestamp;
 
         emit TransactionResolved(_txn.id, _txn.timestamp, _txn, _resolution);
     }

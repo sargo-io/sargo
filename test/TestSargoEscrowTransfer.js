@@ -237,6 +237,7 @@ describe("==SARGO ESCROW TRANSFER TESTS ================================", () =>
       expect(_sent.agentAccount).to.equal(agent.address);
       expect(_sent.netAmount).to.equal(amount);
       expect(_sent.paymentMethod).to.equal("TRANSFER");
+      expect(_sent.timestamp).to.greaterThan(0);
 
       await expect(sendAmount).to.emit(sargoEscrow, "Transfer");
       //.withArgs(_sent.id, _sent.timestamp, _sent);
@@ -281,6 +282,7 @@ describe("==SARGO ESCROW TRANSFER TESTS ================================", () =>
       expect(_sent.agentAccount).to.equal(owner.address);
       expect(_sent.netAmount).to.equal(amount);
       expect(_sent.paymentMethod).to.equal("TRANSFER");
+      expect(_sent.timestamp).to.greaterThan(0);
 
       await expect(sendAmount).to.emit(sargoEscrow, "Transfer");
       //.withArgs(_sent.id, _sent.timestamp, _sent);

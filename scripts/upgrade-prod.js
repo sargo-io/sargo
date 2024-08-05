@@ -13,13 +13,13 @@ async function main() {
   /** -- End Fee contract upgrade -- */
 
   /** -- Start Escrow contract upgrade -- */
-  const SargoEscrow_v0_1_12 = await ethers.getContractFactory(
-    "SargoEscrow_v0_1_12"
+  const SargoEscrow_v0_1_28 = await ethers.getContractFactory(
+    "SargoEscrow_v0_1_28"
   );
 
   await upgrades.forceImport(
     "0x004b690c6379B865A39F9d637a468a764838d88E",
-    SargoEscrow_v0_1_12,
+    SargoEscrow_v0_1_28,
     { kind: "uups" }
   );
 
