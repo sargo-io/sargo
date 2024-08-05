@@ -25,12 +25,12 @@ describe("==SARGO ESCROW TRANSFER TESTS ================================", () =>
     );
 
     const amount = ethers.parseUnits("1", "ether");
-    const agentFee = ethers.parseUnits("0.005", "ether");
-    const treasuryFee = ethers.parseUnits("0.005", "ether");
+    const agentFee = ethers.parseUnits("0", "ether");
+    const treasuryFee = ethers.parseUnits("0.01", "ether");
     const fundAmount = ethers.parseUnits("7", "ether");
     const currencyCode = "KES";
     const conversionRate = ethers.parseUnits("140", "ether");
-    const acceptedConversionRate = ethers.parseUnits("145", "ether");
+    const acceptedConversionRate = ethers.parseUnits("140", "ether");
     const clientName = "clientName";
     const clientPhone = "254722000000";
     const agentName = "agentName";
@@ -39,8 +39,8 @@ describe("==SARGO ESCROW TRANSFER TESTS ================================", () =>
     const clientKey = "clientkey";
     const agentKey = "agentKey";
 
-    const agentFeeRate = ethers.parseUnits("0.5", "ether");
-    const treasuryFeeRate = ethers.parseUnits("0.5", "ether");
+    const agentFeeRate = ethers.parseUnits("0", "ether");
+    const treasuryFeeRate = ethers.parseUnits("0.01", "ether");
     const transferFeeRate = ethers.parseUnits("0.01", "ether");
 
     //ERC20 contract
@@ -237,6 +237,7 @@ describe("==SARGO ESCROW TRANSFER TESTS ================================", () =>
       expect(_sent.agentAccount).to.equal(agent.address);
       expect(_sent.netAmount).to.equal(amount);
       expect(_sent.paymentMethod).to.equal("TRANSFER");
+      expect(_sent.timestamp).to.greaterThan(0);
 
       await expect(sendAmount).to.emit(sargoEscrow, "Transfer");
       //.withArgs(_sent.id, _sent.timestamp, _sent);
@@ -281,6 +282,7 @@ describe("==SARGO ESCROW TRANSFER TESTS ================================", () =>
       expect(_sent.agentAccount).to.equal(owner.address);
       expect(_sent.netAmount).to.equal(amount);
       expect(_sent.paymentMethod).to.equal("TRANSFER");
+      expect(_sent.timestamp).to.greaterThan(0);
 
       await expect(sendAmount).to.emit(sargoEscrow, "Transfer");
       //.withArgs(_sent.id, _sent.timestamp, _sent);
